@@ -2,7 +2,7 @@
 # Copyright 1999-2002 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License
 # Author:  Martin Schlemmer <azarah@gentoo.org>
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.2.6,v 1.1 2002/12/24 18:26:45 azarah Exp $
+# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.2.7,v 1.1 2002/12/25 21:37:47 azarah Exp $
 
 
 source /etc/init.d/functions.sh || {
@@ -162,12 +162,26 @@ switch_profile() {
 		fi
 	done
 
-	# Setup /etc/env.d/05gcc
-	${AWK} '!/STDCXX_INCDIR|LDPATH/ {print $0}' \
-		/etc/env.d/gcc/${GCC_COMP} > /etc/env.d/05gcc
-	echo "LDPATH=\"${MY_LDPATH}\"" >> /etc/env.d/05gcc
-
+	# Setup things properly again for this profile
 	source /etc/env.d/gcc/${GCC_COMP}
+
+	# Add support for colorgcc
+	if [ -x /usr/bin/colorgcc ]
+	then
+		echo "PATH=\"/usr/bin/wrappers:${PATH}\"" > /etc/env.d/05gcc
+		echo "ROOTPATH=\"/usr/bin/wrappers:${PATH}\"" >> /etc/env.d/05gcc
+		echo "CCBINPATH=\"${PATH}\"" >> /etc/env.d/05gcc
+	else
+		echo "PATH=\"${PATH}\"" > /etc/env.d/05gcc
+		echo "ROOTPATH=\"${PATH}\"" >> /etc/env.d/05gcc
+	fi
+
+	# Setup /etc/env.d/05gcc
+	${AWK} '!/^(PATH|ROOTPATH)=|^STDCXX_INCDIR=|^LDPATH=/ {print $0}' \
+		/etc/env.d/gcc/${GCC_COMP} >> /etc/env.d/05gcc
+
+	# Add our custom LDPATH
+	echo "LDPATH=\"${MY_LDPATH}\"" >> /etc/env.d/05gcc
 
 	# Create /lib/cpp if missing or a symlink
 	if [ -L /lib/cpp -o ! -f /lib/cpp ]
