@@ -2,7 +2,7 @@
  * Copyright 1999-2003 Gentoo Foundation
  * Distributed under the terms of the GNU General Public License v2
  * Author: Martin Schlemmer <azarah@gentoo.org>
- * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper.c,v 1.5 2003/01/19 23:39:05 azarah Exp $
+ * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.c,v 1.1 2003/02/23 16:20:10 azarah Exp $
  */
 
 #define _REENTRANT
@@ -17,38 +17,73 @@
 #include <wait.h>
 #include <libgen.h>
 #include <string.h>
+#include <stdarg.h>
+#include <errno.h>
 
+struct wrapper_data {
+	char name[MAXPATHLEN + 1];
+	char fullname[MAXPATHLEN + 1];
+	char bin[MAXPATHLEN + 1];
+	char tmp[MAXPATHLEN + 1];
 
-int main(int argc, char **argv) {
+	char *path;
+};
+
+static const char *wrapper_strerror(int err, struct wrapper_data *data)
+{
+	strerror_r(err, data->tmp, sizeof(data->tmp));
+	return data->tmp;
+}
+
+static void wrapper_exit(char *msg, ...)
+{
+	va_list args;
+	va_start(args, msg);
+	vfprintf(stderr, msg, args);
+	va_end(args);
+	exit(1);
+}
+
+/* find_bin checks in path for the file we are seeking
+   it returns 1 if found (with data->bin setup), 0 if not
+    and negative on error */
+static int check_for_target(char *path, struct wrapper_data *data)
+{
 	struct stat sbuf;
-	FILE *inpipe = NULL;
-	char wrapperbin[MAXPATHLEN + 1], wrapfullname[MAXPATHLEN + 1];
-	char *wrappername = NULL;
-	char *buffer = NULL, *token = NULL, *tmpstr = NULL, *state = NULL;
-	int ret = 0;
+	int result = 0;
+	char *str = data->tmp;
+	size_t len = strlen(path) + strlen(data->name) + 2;
 
-	wrapperbin[0] = '\0';
+	snprintf(str, len, "%s/%s", path, data->name);
 
-	/* What should we find ? */
-	wrappername = strdupa(basename(argv[0]));
+	/* Stat possible file to check that
+	   1) it exist and is a regular file, and
+	   2) it is not the wrapper itself, and
+	   3) it is in a /gcc-bin/ directory tree */
+	result = stat(str, &sbuf);
+	if ((0 == result) && (sbuf.st_mode & S_IFREG) &&
+	    (0 != strcmp(str, data->fullname)) &&
+	    (0 != strstr(str, "/gcc-bin/"))) {
+		strncpy(data->bin, str, MAXPATHLEN);
+		data->bin[MAXPATHLEN] = 0;
+		result = 1;
+	}
+	else
+		result = 0;
 
-	/* cc calls gcc ... */
-	if (0 == strcmp(wrappername, "cc"))
-		sprintf(wrappername, "%s", "gcc");
+	return result;
+}
 
-	/* What is the full name of our wrapper? */
-	snprintf(wrapfullname, strlen("/usr/bin/") + strlen(wrappername) + 1,
-		"%s%s", "/usr/bin/", wrappername);
+static int find_target_in_path(struct wrapper_data *data)
+{
+	char *token = NULL, *str = data->tmp, *state;
 
-	/* If PATH is not set, just set token to NULL, else we get
-	 * a segfault.  Thanks to Eric Andresen <ndiin1@cox.net> for
-	 * reporting this. */
-	if (NULL != getenv("PATH")) {
+	if (NULL == data->path) return 0;
 
-		buffer = strdup((char *)getenv("PATH"));
-		token = strtok_r(buffer, ":", &state);
-	} else
-		token = NULL;
+	/* Make a copy since strtok_r will modify path */
+	snprintf(str, MAXPATHLEN + 1, "%s", data->path);
+
+	token = strtok_r(str, ":", &state);
 
 	/* Find the first file with suitable name in PATH.  The idea here is
 	 * that we do not want to bind ourselfs to something static like the
@@ -56,85 +91,137 @@ int main(int argc, char **argv) {
 	 * able to build something with a non default gcc by just tweaking
 	 * the PATH ... */
 	while ((NULL != token) && (strlen(token) > 0)) {
-
-		tmpstr = (char *)malloc(strlen(token) + strlen(wrappername) + 2);
-		snprintf(tmpstr, strlen(token) + strlen(wrappername) + 2,
-			"%s/%s", token, wrappername);
-
-		/* Does it exist and is a file? */
-		ret = stat(tmpstr, &sbuf);
-		/* It exists, and are not our wrapper, and its in a dir containing
-		 * gcc-bin ... */
-		if ((0 == ret) && (sbuf.st_mode & S_IFREG) &&
-		    (0 != strcmp(tmpstr, wrapfullname)) && (0 != strstr(tmpstr, "/gcc-bin/"))) {
-
-			strncpy(wrapperbin, tmpstr, MAXPATHLEN);
-
-			if (tmpstr) {
-				free(tmpstr);
-				tmpstr = NULL;
-			}
-
-			break;
-		}
+		if (check_for_target(token, data))
+			return 1;
 
 		token = strtok_r(NULL, ":", &state);
 	}
 
-	if (buffer) {
-		free(buffer);
-		buffer = NULL;
+	return 0;
+}
+
+static void find_wrapper_target(struct wrapper_data *data)
+{
+	FILE *inpipe = NULL;
+	char *str = data->tmp;
+
+	if (find_target_in_path(data))
+		return;
+
+	/* Only our wrapper is in PATH, so
+	   get the CC path using gcc-config and
+	   execute the real binary in there... */
+	inpipe = popen("/usr/bin/gcc-config --get-bin-path", "r");
+	if (NULL == inpipe) {
+		wrapper_exit(
+			"Could not open pipe for /usr/bin/gcc-config: %s\n",
+			wrapper_strerror(errno, data));
 	}
 
-	/* Did we get a valid binary to execute? */
-	if (wrapperbin[0] == '\0') {
+	if (0 == fgets(str, MAXPATHLEN, inpipe))
+		wrapper_exit("Could not get compiler binary path: %s\n",
+			wrapper_strerror(errno, data));
 
-		/* It is our wrapper, so get the CC path, and execute the real binary in
-		 * there ... */
-		inpipe = popen("/usr/bin/gcc-config --get-bin-path", "r");
-		if (NULL == inpipe) {
+	strncpy(data->bin, str, sizeof(data->bin) - 1);
+	data->bin[strlen(data->bin) - 1] = '/';
+	strncat(data->bin, data->name, sizeof(data->bin) - 1);
+	data->bin[MAXPATHLEN] = 0;
 
-			fprintf(stderr, "Could not run /usr/bin/gcc-config!\n");
-			exit(1);
-		}
+	pclose(inpipe);
+}
 
-		buffer = (char *)malloc(MAXPATHLEN + 1);
+/* This function modifies PATH to have gcc's bin path appended */
+static void modify_path(struct wrapper_data *data)
+{
+	char *newpath = NULL, *token = NULL, *state;
+	char dname_data[MAXPATHLEN + 1];
+	char *str = data->tmp, *str2 = dname_data, *dname = dname_data;
+	size_t len = 0;
 
-		if (fgets(buffer, MAXPATHLEN, inpipe) == 0) {
+	if (NULL == data->bin)
+		return;
 
-			fprintf(stderr, "Could not get compiler binary path!\n");
+	snprintf(str2, MAXPATHLEN + 1, "%s", data->bin);
 
-			if (buffer) {
-				free(buffer);
-				buffer = NULL;
-			}
+	if (NULL == (dname = dirname(str2)))
+		return;
 
-			pclose(inpipe);
+	if (NULL == data->path)
+		return;
 
-			exit(1);
-		}
+	/* Make a copy since strtok_r will modify path */
+	snprintf(str, MAXPATHLEN + 1, "%s", data->path);
 
-		sscanf(buffer, "%s", wrapperbin);
-		strncat(wrapperbin, "/", MAXPATHLEN - strlen(wrapperbin));
-		strncat(wrapperbin, wrappername, MAXPATHLEN - strlen(wrapperbin));
+	token = strtok_r(str, ":", &state);
 
-		pclose(inpipe);
-
-		if (buffer) {
-			free(buffer);
-			buffer = NULL;
-		}
+	/* Check if we already appended our bin location to PATH */
+	if ((NULL != token) && (strlen(token) > 0)) {
+		if (0 == strcmp(token, dname))
+			return;
 	}
+
+	len = strlen(dname) + strlen(data->path) + 2;
+
+	newpath = (char *)malloc(len);
+	if (NULL == newpath)
+		wrapper_exit("wrapper: out of memory\n");
+	memset(newpath, 0, len);
+
+	snprintf(newpath, len, "%s:%s", dname, data->path);
+	setenv("PATH", newpath, 1);
+
+	if (newpath)
+		free(newpath);
+	newpath = NULL;
+}
+
+int main(int argc, char **argv)
+{
+	struct wrapper_data *data;
+	size_t size;
+	char *path;
+	int result = 0;
+
+	data = alloca(sizeof(*data));
+	if (NULL == data)
+		wrapper_exit("%s wrapper: out of memory\n", argv[0]);
+	memset(data, 0, sizeof(*data));
+
+	path = getenv("PATH");
+	if (NULL != path) {
+		data->path = strdup(getenv("PATH"));
+		if (NULL == data->path)
+			wrapper_exit("%s wrapper: out of memory\n", argv[0]);
+	}
+
+	/* What should we find ? */
+	strcpy(data->name, basename(argv[0]));
+
+	/* cc calls "/full/path/to/gcc" ... */
+	if (0 == strcmp(data->name, "cc"))
+		strcpy(data->name, "gcc");
+
+	/* What is the full name of our wrapper? */
+	size = sizeof(data->fullname);
+	result = snprintf(data->fullname, size, "/usr/bin/%s", data->name);
+	if ((-1 == result) || (result > size))
+		wrapper_exit("invalid wrapper name: \"%s\"\n", data->name);
+
+	find_wrapper_target(data);
+
+	modify_path(data);
+
+	if (data->path)
+		free(data->path);
+	data->path = NULL;
 
 	/* Set argv[0] to the correct binary, else gcc do not find internal
 	 * headers, etc (bug #8132). */
-	argv[0] = wrapperbin;
+	argv[0] = data->bin;
 
 	/* Ok, do it ... */
-	if (execv(wrapperbin, argv) < 0) {
-		fprintf(stderr, "Could not run/locate %s!\n", wrappername);
-		exit(1);
-	}
+	if (execv(data->bin, argv) < 0)
+		wrapper_exit("Could not run/locate \"%s\"\n", data->name);
 
 	return 0;
 }
