@@ -2,7 +2,7 @@
 # Copyright 1999-2002 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License
 # Author:  Martin Schlemmer <azarah@gentoo.org>
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.2.8,v 1.1 2003/01/15 00:25:33 azarah Exp $
+# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.2.9,v 1.1 2003/01/15 01:59:58 azarah Exp $
 
 
 source /etc/init.d/functions.sh || {
