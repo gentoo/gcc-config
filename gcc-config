@@ -2,7 +2,7 @@
 # Copyright 1999-2002 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License
 # Author:  Martin Schlemmer <azarah@gentoo.org>
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.2.1,v 1.1 2002/11/27 21:45:37 azarah Exp $
+# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.2.2,v 1.1 2002/12/16 04:19:05 azarah Exp $
 
 
 source /etc/init.d/functions.sh || {
@@ -122,19 +122,22 @@ switch_profile() {
 
 	source /etc/env.d/gcc/${GCC_COMP}
 
-	if [ -d /usr/include/${STDCXX_INCDIR} -a ! -L /usr/include/${STDCXX_INCDIR} ]
-	then
-		${MV} /usr/include/${STDCXX_INCDIR} /usr/include/${STDCXX_INCDIR}.orig
-	elif [ -L /usr/include/${STDCXX_INCDIR} ]
-	then
-		${RM} -f /usr/include/${STDCXX_INCDIR}
-	fi
-	${LN} -snf ..${LDPATH/\/usr}/include/${STDCXX_INCDIR} /usr/include/${STDCXX_INCDIR}
+# These are in gcc's internal include dir, so no need for symlinks or other
+# hacks ...
+#	if [ -d /usr/include/${STDCXX_INCDIR} -a ! -L /usr/include/${STDCXX_INCDIR} ]
+#	then
+#		${MV} /usr/include/${STDCXX_INCDIR} /usr/include/${STDCXX_INCDIR}.orig
+#	elif [ -L /usr/include/${STDCXX_INCDIR} ]
+#	then
+#		${RM} -f /usr/include/${STDCXX_INCDIR}
+#	fi
+#	${LN} -snf ..${LDPATH/\/usr}/include/${STDCXX_INCDIR} /usr/include/${STDCXX_INCDIR}
 
-	[ -L /lib/cpp -o -f /lib/cpp ] && ${RM} -f /lib/cpp
-	${LN} -snf ..${PATH}/cpp /lib/cpp
-	[ -L /usr/bin/cc -o -f /usr/bin/cc ] && ${RM} -f /usr/bin/cc
-	${LN} -snf ../..${PATH}/gcc /usr/bin/cc
+# We use wrapper scripts from gcc-3.2.1-r6 ....
+#	[ -L /lib/cpp -o -f /lib/cpp ] && ${RM} -f /lib/cpp
+#	${LN} -snf ..${PATH}/cpp /lib/cpp
+#	[ -L /usr/bin/cc -o -f /usr/bin/cc ] && ${RM} -f /usr/bin/cc
+#	${LN} -snf ../..${PATH}/gcc /usr/bin/cc
 
 	echo "CURRENT=${GCC_COMP}" > /etc/env.d/gcc/config
 
