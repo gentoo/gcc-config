@@ -2,7 +2,7 @@
  * Copyright 1999-2003 Gentoo Foundation
  * Distributed under the terms of the GNU General Public License v2
  * Author: Martin Schlemmer <azarah@gentoo.org>
- * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.2.c,v 1.1 2004/02/08 16:52:01 azarah Exp $
+ * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.2.c,v 1.2 2004/07/18 04:44:54 dragonheart Exp $
  */
 
 #define _REENTRANT
