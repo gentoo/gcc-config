@@ -2,7 +2,7 @@
 # Copyright 1999-2002 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License
 # Author:  Martin Schlemmer <azarah@gentoo.org>
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.2.5,v 1.1 2002/12/23 01:49:50 azarah Exp $
+# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.2.6,v 1.1 2002/12/24 18:26:45 azarah Exp $
 
 
 source /etc/init.d/functions.sh || {
@@ -117,6 +117,7 @@ REAL_CHOST="$(/usr/bin/python -c 'import portage; print portage.settings["CHOST"
 switch_profile() {
 	local MY_LDPATH=""
 	local GCC_PROFILES=""
+	local REPLACED_CPP="no"
 
 	if [ "$(id -u)" -ne 0 ]
 	then
@@ -173,25 +174,35 @@ switch_profile() {
 	then
 		${RM} -f /lib/cpp
 		gen_wrapper /lib/cpp cpp
+		# Make sure it are not unmerged by mistake
+		${TOUCH} /lib/cpp
 	fi
-	# Make sure it are not unmerged by mistake
-	${TOUCH} /lib/cpp
 	# Create /usr/bin/cc if missing or a symlink
 	if [ -L /usr/bin/cc -o ! -f /usr/bin/cc ]
 	then
 		${RM} -f /usr/bin/cc
 		gen_wrapper /usr/bin/cc gcc
+		# Make sure it are not unmerged by mistake
+		${TOUCH} /usr/bin/cc
 	fi
-	# Make sure it are not unmerged by mistake
-	${TOUCH} /usr/bin/cc
 	# Create /usr/bin/cpp if missing or a symlink (used by XFree86 for one)
-	if [ -L /usr/bin/cpp -o ! -f /usr/bin/cpp ]
+	if [ -L /usr/bin/cpp -o ! -f /usr/bin/cpp ] || \
+	   [ -f /usr/bin/cpp -a ! -f /usr/bin/cpp0 ]
 	then
+		# In some cases we hava an old binary that was not unmerged, and breaks
+		# things, thus remove it and replace with proper wrapper ...
+		if [ -f /usr/bin/cpp ] && \
+		   [ -z "$(${GREP} "This is part of sys-devel\/gcc-config" /usr/bin/cpp)" ]
+		then
+			REPLACED_CPP="yes"
+			${MV} -f /usr/bin/cpp /usr/bin/cpp.orig
+		fi
+
 		${RM} -f /usr/bin/cpp
 		gen_wrapper /usr/bin/cpp cpp
+		# Make sure it are not unmerged by mistake
+		${TOUCH} /usr/bin/cpp
 	fi
-	# Make sure it are not unmerged by mistake
-	${TOUCH} /usr/bin/cpp
 
 	echo "CURRENT=${GCC_COMP}" > /etc/env.d/gcc/config
 
@@ -200,6 +211,14 @@ switch_profile() {
 	${ENV_UPDATE} &> /dev/null
 
 	eend 0
+
+	if [ "${REPLACED_CPP}" = "yes" ]
+	then
+		echo
+		ewarn "Sanity check of /usr/bin/cpp failed, backing up to /usr/bin/cpp.orig"
+		ewarn "and replacing with wrapper script!  If you have problems, replace it"
+		ewarn "with the original, or submit a bugreport."
+	fi
 
 	return 0
 }
