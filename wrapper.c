@@ -2,7 +2,7 @@
  * Copyright 1999-2003 Gentoo Foundation
  * Distributed under the terms of the GNU General Public License v2
  * Author: Martin Schlemmer <azarah@gentoo.org>
- * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.1.c,v 1.2 2003/04/12 21:19:26 azarah Exp $
+ * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.2.c,v 1.1 2004/02/08 16:52:01 azarah Exp $
  */
 
 #define _REENTRANT
@@ -60,7 +60,7 @@ static int check_for_target(char *path, struct wrapper_data *data)
 {
 	struct stat sbuf;
 	int result = 0;
-	char *str = data->tmp;
+	char str[MAXPATHLEN + 1];
 	size_t len = strlen(path) + strlen(data->name) + 2;
 
 	snprintf(str, len, "%s/%s", path, data->name);
@@ -71,7 +71,8 @@ static int check_for_target(char *path, struct wrapper_data *data)
 	 * 3) it is in a /gcc-bin/ directory tree
 	 */
 	result = stat(str, &sbuf);
-	if ((0 == result) && (sbuf.st_mode & S_IFREG) &&
+	if ((0 == result) &&
+	    ((sbuf.st_mode & S_IFREG) || (sbuf.st_mode & S_IFLNK)) &&
 	    (0 != strcmp(str, data->fullname)) &&
 	    (0 != strstr(str, "/gcc-bin/"))) {
 
@@ -87,7 +88,8 @@ static int check_for_target(char *path, struct wrapper_data *data)
 
 static int find_target_in_path(struct wrapper_data *data)
 {
-	char *token = NULL, *str = data->tmp, *state;
+	char *token = NULL, *state;
+	char str[MAXPATHLEN + 1];
 
 	if (NULL == data->path) return 0;
 
@@ -119,7 +121,9 @@ static int find_target_in_path(struct wrapper_data *data)
 static int find_target_in_envd(struct wrapper_data *data)
 {
 	FILE *envfile = NULL;
-	char *token = NULL, *str = data->tmp, *state;
+	char *token = NULL, *state;
+	char str[MAXPATHLEN + 1];
+	char *strp = str;
 
 	if (NULL == data->path) return 0;
 
@@ -127,15 +131,15 @@ static int find_target_in_envd(struct wrapper_data *data)
 	if (NULL == envfile)
 		return 0;
 
-	while (0 != fgets(str, MAXPATHLEN, envfile)) {
+	while (0 != fgets(strp, MAXPATHLEN, envfile)) {
 
 		/* Keep reading ENVD_FILE until we get a line that
 		 * starts with 'PATH='
 		 */
-		if (((str) && (strlen(str) > strlen("PATH=")) &&
-			0 == strncmp("PATH=", str, strlen("PATH=")))) {
+		if (((strp) && (strlen(strp) > strlen("PATH=")) &&
+			0 == strncmp("PATH=", strp, strlen("PATH=")))) {
 
-			token = strtok_r(str, "=", &state);
+			token = strtok_r(strp, "=", &state);
 			if ((NULL != token) && (strlen(token) > 0))
 				/* The second token should be the value of PATH .. */
 				token = strtok_r(NULL, "=", &state);
@@ -146,11 +150,11 @@ static int find_target_in_envd(struct wrapper_data *data)
 
 			if ((NULL != token) && (strlen(token) > 0)) {
 
-				str = token;
+				strp = token;
 				/* A bash variable may be unquoted, quoted with " or
 				 * quoted with ', so extract the value without those ..
 				 */
-				token = strsep(&str, "\n\"\'");
+				token = strsep(&strp, "\n\"\'");
 
 				while (NULL != token) {
 
@@ -160,12 +164,12 @@ static int find_target_in_envd(struct wrapper_data *data)
 						return 1;
 					}
 
-					token = strsep(&str, "\n\"\'");
+					token = strsep(&strp, "\n\"\'");
 				}
 			}
 
 		}
-		str = data->tmp;
+		strp = str;
 	}
 
 	fclose(envfile);
@@ -176,7 +180,7 @@ static int find_target_in_envd(struct wrapper_data *data)
 static void find_wrapper_target(struct wrapper_data *data)
 {
 	FILE *inpipe = NULL;
-	char *str = data->tmp;
+	char str[MAXPATHLEN + 1];
 
 #ifndef CC_PROFILE
 	if (find_target_in_path(data))
@@ -216,8 +220,8 @@ static void find_wrapper_target(struct wrapper_data *data)
 static void modify_path(struct wrapper_data *data)
 {
 	char *newpath = NULL, *token = NULL, *state;
-	char dname_data[MAXPATHLEN + 1];
-	char *str = data->tmp, *str2 = dname_data, *dname = dname_data;
+	char dname_data[MAXPATHLEN + 1], str[MAXPATHLEN + 1];
+	char *str2 = dname_data, *dname = dname_data;
 	size_t len = 0;
 
 	if (NULL == data->bin)
