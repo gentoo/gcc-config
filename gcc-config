@@ -2,7 +2,7 @@
 # Copyright 1999-2002 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License
 # Author:  Martin Schlemmer <azarah@gentoo.org>
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.2.4,v 1.2 2002/12/17 13:06:48 azarah Exp $
+# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.2.5,v 1.1 2002/12/23 01:49:50 azarah Exp $
 
 
 source /etc/init.d/functions.sh || {
@@ -31,6 +31,11 @@ Options:
 	[--list-profiles]
 
 	    Print a list of available profiles.
+
+	[--print-environ]
+
+	    Print environment that can be used to setup things for current
+		gcc profile, or specified one ...
 
 	[--get-bin-path]
 
@@ -88,6 +93,17 @@ find_path() {
 gen_wrapper() {
 	${CAT} > $1 << END
 #!/bin/sh
+
+# This is part of sys-devel/gcc-config
+
+CPP="\`which cpp 2> /dev/null\`"
+
+# Setup PATH if we cannot find the cpp binary, or if the one
+# we find is the wrapper script ...
+if [ ! -x "\${CPP}" -o "\${CPP}" == "/usr/bin/cpp" ]
+then
+	PATH="\`/usr/sbin/gcc-config --get-bin-path\`:\${PATH}"
+fi
 
 $2 "\$@"
 END
@@ -160,7 +176,7 @@ switch_profile() {
 	fi
 	# Make sure it are not unmerged by mistake
 	${TOUCH} /lib/cpp
-	# Create /usr/bin/cc if missing for a symlink
+	# Create /usr/bin/cc if missing or a symlink
 	if [ -L /usr/bin/cc -o ! -f /usr/bin/cc ]
 	then
 		${RM} -f /usr/bin/cc
@@ -168,6 +184,14 @@ switch_profile() {
 	fi
 	# Make sure it are not unmerged by mistake
 	${TOUCH} /usr/bin/cc
+	# Create /usr/bin/cpp if missing or a symlink (used by XFree86 for one)
+	if [ -L /usr/bin/cpp -o ! -f /usr/bin/cpp ]
+	then
+		${RM} -f /usr/bin/cpp
+		gen_wrapper /usr/bin/cpp cpp
+	fi
+	# Make sure it are not unmerged by mistake
+	${TOUCH} /usr/bin/cpp
 
 	echo "CURRENT=${GCC_COMP}" > /etc/env.d/gcc/config
 
@@ -214,6 +238,24 @@ list_profiles() {
 			echo "${x##*/}"
 		fi
 	done
+}
+
+print_environ() {
+	local OLDPATH="${PATH}"
+
+	source /etc/env.d/gcc/${GCC_COMP}
+
+	echo "export PATH=\"${PATH}:${OLDPATH}\""
+
+#	if [ -z "${LD_LIBRARY_PATH}" ]
+#	then
+#		echo "export LD_LIBRARY_PATH=\"${LDPATH}\""
+#	else
+#		echo "export LD_LIBRARY_PATH=\"${LDPATH}:${LD_LIBRARY_PATH}\""
+#	fi
+
+	echo "export CC=\"${CC}\""
+	echo "export CXX=\"${CXX}\""
 }
 
 get_bin_path() {
@@ -269,6 +311,13 @@ do
 			then
 				NEED_ACTION="no"
 				DOIT="list_profiles"
+			fi
+			;;
+		--print-environ)
+			if [ "${NEED_ACTION}" = "yes" ]
+			then
+				NEED_ACTION="no"
+				DOIT="print_environ"
 			fi
 			;;
 		--get-bin-path)
