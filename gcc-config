@@ -2,19 +2,13 @@
 # Copyright 1999-2002 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License
 # Author:  Martin Schlemmer <azarah@gentoo.org>
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.2,v 1.1 2002/11/10 15:17:26 azarah Exp $
+# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.2.1,v 1.1 2002/11/27 21:45:37 azarah Exp $
 
 
 source /etc/init.d/functions.sh || {
 	echo "$0: Could not source /etc/init.d/functions.sh!"
 	exit 1
 }
-
-if [ "$(id -u)" -ne 0 ]
-then
-	eerror "$0: Must be root."
-	exit 1
-fi
 
 usage() {
 cat << "USAGE_END"
@@ -76,6 +70,12 @@ REAL_CHOST="$(/usr/bin/python -c 'import portage; print portage.settings["CHOST"
 switch_profile() {
 	local MY_LDPATH=""
 	local GCC_PROFILES=""
+
+	if [ "$(id -u)" -ne 0 ]
+	then
+		eerror "$0: Must be root."
+		exit 1
+	fi
 
 	ebegin "Switching to ${GCC_COMP} compiler"
 
