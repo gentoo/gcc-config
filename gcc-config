@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copyright 1999-2004 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.3.9,v 1.4 2005/01/19 23:26:13 vapier Exp $
+# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.3.10,v 1.1 2005/01/31 05:39:30 eradicator Exp $
 # Author:  Martin Schlemmer <azarah@gentoo.org>
 
 trap ":" INT QUIT TSTP
@@ -206,7 +206,7 @@ switch_profile() {
 		local ref=${ROOT}/${GCC_BIN_PATH}/${x}
 		[[ ${x} = "cc" ]] && ref=${ROOT}/${GCC_BIN_PATH}/gcc
 		if [[ -x ${ref} ]] ; then
-			${CP} -f "${ROOT}/usr/lib/gcc-config/wrapper" \
+			${CP} -f "${ROOT}/usr/libexec/gcc-config/wrapper" \
 			         "${ROOT}/usr/bin/${x}"
 			touch -r "${ref}" "${ROOT}/usr/bin/${x}"
 
@@ -214,7 +214,7 @@ switch_profile() {
 			# This should probably get folded back into the wrapper ...
 			if [[ ${x:${#x}-3} = "gcc" ]] || [[ ${x:${#x}-3} = "g++" ]] ; then
 				for bits in ${GCCBITS} ; do
-					cp -f "${ROOT}/usr/lib/gcc-config/wrapper" \
+					cp -f "${ROOT}/usr/libexec/gcc-config/wrapper" \
 						"${ROOT}/usr/bin/${x}${bits}"
 				done
 			fi
@@ -223,16 +223,28 @@ switch_profile() {
 	# Only install cpp if switching to a native one
 	if ! is_cross_compiler ; then
 		${RM} -f "${ROOT}/lib/cpp"
-		${CP} -f "${ROOT}/usr/lib/gcc-config/wrapper" "${ROOT}/lib/cpp"
+		${CP} -f "${ROOT}/usr/libexec/gcc-config/wrapper" "${ROOT}/lib/cpp"
 	fi
 
 	# We need to make sure that libgcc_s.so makes it into /lib.
 	# On many systems (x86/amd64/etc...), this will probably never matter,
 	# but on other systems (arm/mips/etc...), this is quite critical.
 	# http://bugs.gentoo.org/show_bug.cgi?id=60190
-	if ! is_cross_compiler && [[ -e ${ROOT}/${LDPATH}/libgcc_s.so ]] ; then
-		rm -f "${ROOT}"/lib/libgcc_so.so*
-		cp -a "${ROOT}/${LDPATH}"/libgcc_s.so* "${ROOT}"/lib/
+	if ! is_cross_compiler; then
+		for multilib in $(${ROOT}/${GCC_BIN_PATH}/gcc -print-multi-lib); do
+			multiarg=${multilib#*;}
+			multiarg=${multiarg/@/-}
+			multilibdir=${multilib%;*}
+			libdir="lib/$(${ROOT}/${GCC_BIN_PATH}/gcc ${multiarg} -print-multi-os-directory)"
+			if [[ -e ${ROOT}/${LDPATH}/${multildir}/libgcc_s.so ]]; then
+				rm -f ${ROOT}/${libdir}/libgcc_so.so*
+				cp -a ${ROOT}/${LDPATH}/${multilibdir}/libgcc_s.so* ${ROOT}/${libdir}/
+			fi
+		done
+		unset multilib
+		unset multilibdir
+		unset multiarg
+		unset libdir
 	fi
 
 	if [[ ${ROOT} = "/" ]] && [[ ${OLD_CC_COMP} != ${CC_COMP} ]] ; then
