@@ -2,7 +2,7 @@
  * Copyright 1999-2003 Gentoo Foundation
  * Distributed under the terms of the GNU General Public License v2
  * Author: Martin Schlemmer <azarah@gentoo.org>
- * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.c,v 1.1 2003/02/23 16:20:10 azarah Exp $
+ * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.1.c,v 1.1 2003/04/12 18:44:22 azarah Exp $
  */
 
 #define _REENTRANT
@@ -19,6 +19,11 @@
 #include <string.h>
 #include <stdarg.h>
 #include <errno.h>
+
+//#define DEBUG
+
+#define GCC_CONFIG	"/usr/bin/gcc-config"
+#define ENVD_FILE	"/etc/env.d/05gcc"
 
 struct wrapper_data {
 	char name[MAXPATHLEN + 1];
@@ -44,9 +49,10 @@ static void wrapper_exit(char *msg, ...)
 	exit(1);
 }
 
-/* find_bin checks in path for the file we are seeking
-   it returns 1 if found (with data->bin setup), 0 if not
-    and negative on error */
+/* check_for_target checks in path for the file we are seeking
+ * it returns 1 if found (with data->bin setup), 0 if not and
+ * negative on error
+ */
 static int check_for_target(char *path, struct wrapper_data *data)
 {
 	struct stat sbuf;
@@ -57,13 +63,15 @@ static int check_for_target(char *path, struct wrapper_data *data)
 	snprintf(str, len, "%s/%s", path, data->name);
 
 	/* Stat possible file to check that
-	   1) it exist and is a regular file, and
-	   2) it is not the wrapper itself, and
-	   3) it is in a /gcc-bin/ directory tree */
+	 * 1) it exist and is a regular file, and
+	 * 2) it is not the wrapper itself, and
+	 * 3) it is in a /gcc-bin/ directory tree
+	 */
 	result = stat(str, &sbuf);
 	if ((0 == result) && (sbuf.st_mode & S_IFREG) &&
 	    (0 != strcmp(str, data->fullname)) &&
 	    (0 != strstr(str, "/gcc-bin/"))) {
+
 		strncpy(data->bin, str, MAXPATHLEN);
 		data->bin[MAXPATHLEN] = 0;
 		result = 1;
@@ -91,6 +99,7 @@ static int find_target_in_path(struct wrapper_data *data)
 	 * able to build something with a non default gcc by just tweaking
 	 * the PATH ... */
 	while ((NULL != token) && (strlen(token) > 0)) {
+
 		if (check_for_target(token, data))
 			return 1;
 
@@ -100,21 +109,105 @@ static int find_target_in_path(struct wrapper_data *data)
 	return 0;
 }
 
+/* find_target_in_envd parses /etc/env.d/05gcc, and tries to
+ * extract PATH, which is set to the current profile's bin
+ * directory ...
+ */
+static int find_target_in_envd(struct wrapper_data *data)
+{
+	FILE *envfile = NULL;
+	char *token = NULL, *str = data->tmp, *state;
+
+	if (NULL == data->path) return 0;
+
+	envfile = fopen(ENVD_FILE, "r");
+	if (NULL == envfile)
+		return 0;
+
+	while (0 != fgets(str, MAXPATHLEN, envfile)) {
+
+		/* Keep reading ENVD_FILE until we get a line that
+		 * starts with 'PATH='
+		 */
+		if (((str) && (strlen(str) > strlen("PATH=")) &&
+			0 == strncmp("PATH=", str, strlen("PATH=")))) {
+
+			token = strtok_r(str, "=", &state);
+			if ((NULL != token) && (strlen(token) > 0))
+				/* The second token should be the value of PATH .. */
+				token = strtok_r(NULL, "=", &state);
+			else {
+				fclose(envfile);
+				return 0;
+			}
+
+			if ((NULL != token) && (strlen(token) > 0)) {
+
+				str = token;
+#ifdef DEBUG
+				printf("* token = %s\n", token);
+#endif
+				/* A bash variable may be unquoted, quoted with " or
+				 * quoted with ', so extract the value without those ..
+				 */
+				token = strsep(&str, "\n\"\'");
+#ifdef DEBUG
+				printf("* token = %s\n", token);
+#endif
+
+				while (NULL != token) {
+
+					if (check_for_target(token, data)) {
+
+						fclose(envfile);
+						return 1;
+					}
+
+					token = strsep(&str, "\n\"\'");
+#ifdef DEBUG
+					printf("* token = %s\n", token);
+#endif
+				}
+			}
+
+		}
+		str = data->tmp;
+	}
+
+	fclose(envfile);
+
+	return 0;
+}
+
 static void find_wrapper_target(struct wrapper_data *data)
 {
 	FILE *inpipe = NULL;
 	char *str = data->tmp;
 
+#ifdef DEBUG
+	printf("* calling find_target_in_path\n");
+#endif
 	if (find_target_in_path(data))
 		return;
+
+#ifdef DEBUG
+	printf("* calling find_target_in_envd\n");
+#endif
+	if (find_target_in_envd(data))
+		return;
+
+#ifdef DEBUG
+	printf("* calling find_wrapper_target\n");
+#endif
 
 	/* Only our wrapper is in PATH, so
 	   get the CC path using gcc-config and
 	   execute the real binary in there... */
-	inpipe = popen("/usr/bin/gcc-config --get-bin-path", "r");
+	inpipe = popen(GCC_CONFIG " --get-bin-path", "r");
 	if (NULL == inpipe) {
+
 		wrapper_exit(
-			"Could not open pipe for /usr/bin/gcc-config: %s\n",
+			"Could not open pipe for GCC_CONFIG: %s\n",
 			wrapper_strerror(errno, data));
 	}
 
@@ -218,6 +311,10 @@ int main(int argc, char **argv)
 	/* Set argv[0] to the correct binary, else gcc do not find internal
 	 * headers, etc (bug #8132). */
 	argv[0] = data->bin;
+
+#ifdef DEBUG
+	printf("exec %s\n", data->bin);
+#endif
 
 	/* Ok, do it ... */
 	if (execv(data->bin, argv) < 0)
