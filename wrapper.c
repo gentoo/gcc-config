@@ -1,7 +1,7 @@
 /*
  * Copyright 1999-2004 Gentoo Foundation
  * Distributed under the terms of the GNU General Public License v2
- * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.2.c,v 1.5 2004/12/09 01:46:23 vapier Exp $
+ * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.3.c,v 1.2 2004/12/23 18:04:06 vapier Exp $
  * Author: Martin Schlemmer <azarah@gentoo.org>
  */
 
@@ -21,12 +21,7 @@
 #include <errno.h>
 
 #define GCC_CONFIG	"/usr/bin/gcc-config"
-
-#ifndef CC_PROFILE
-# define ENVD_FILE	"/etc/env.d/05gcc"
-#else
-# define ENVD_FILE	"/etc/env.d/gcc/" CC_PROFILE
-#endif
+#define ENVD_BASE	"/etc/env.d/05gcc"
 
 struct wrapper_data {
 	char name[MAXPATHLEN + 1];
@@ -74,16 +69,15 @@ static int check_for_target(char *path, struct wrapper_data *data)
 	 * 3) it is in a /gcc-bin/ directory tree
 	 */
 	result = stat(str, &sbuf);
-	if ((0 == result) &&
-	    ((sbuf.st_mode & S_IFREG) || (sbuf.st_mode & S_IFLNK)) &&
-	    (0 != strcmp(str, data->fullname)) &&
-	    (0 != strstr(str, "/gcc-bin/"))) {
+	if ((result == 0) && \
+	    ((sbuf.st_mode & S_IFREG) || (sbuf.st_mode & S_IFLNK)) && \
+	    (strcmp(str, data->fullname) != 0) && \
+	    (strstr(str, "/gcc-bin/") != 0)) {
 
 		strncpy(data->bin, str, MAXPATHLEN);
 		data->bin[MAXPATHLEN] = 0;
 		result = 1;
-	}
-	else
+	} else
 		result = 0;
 
 	return result;
@@ -94,7 +88,7 @@ static int find_target_in_path(struct wrapper_data *data)
 	char *token = NULL, *state;
 	char str[MAXPATHLEN + 1];
 
-	if (NULL == data->path) return 0;
+	if (data->path == NULL) return 0;
 
 	/* Make a copy since strtok_r will modify path */
 	snprintf(str, MAXPATHLEN + 1, "%s", data->path);
@@ -106,11 +100,9 @@ static int find_target_in_path(struct wrapper_data *data)
 	 * default profile, or some odd environment variable, but want to be
 	 * able to build something with a non default gcc by just tweaking
 	 * the PATH ... */
-	while ((NULL != token) && (strlen(token) > 0)) {
-
+	while ((token != NULL) && strlen(token)) {
 		if (check_for_target(token, data))
 			return 1;
-
 		token = strtok_r(NULL, ":", &state);
 	}
 
@@ -121,48 +113,52 @@ static int find_target_in_path(struct wrapper_data *data)
  * extract PATH, which is set to the current profile's bin
  * directory ...
  */
-static int find_target_in_envd(struct wrapper_data *data)
+static int find_target_in_envd(struct wrapper_data *data, int cross_compile)
 {
 	FILE *envfile = NULL;
 	char *token = NULL, *state;
 	char str[MAXPATHLEN + 1];
 	char *strp = str;
+	char envd_file[MAXPATHLEN + 1];
 
-	if (NULL == data->path) return 0;
-
-	envfile = fopen(ENVD_FILE, "r");
-	if (NULL == envfile)
+	if (!cross_compile) {
+		snprintf(envd_file, MAXPATHLEN, "%s", ENVD_BASE);
+	} else {
+		char *ctarget, *end = strrchr(data->name, '-');
+		if (end == NULL)
+			return 0;
+		ctarget = strdup(data->name);
+		ctarget[end - data->name] = '\0';
+		snprintf(envd_file, MAXPATHLEN, "%s-%s", ENVD_BASE, ctarget);
+		free(ctarget);
+	}
+	envfile = fopen(envd_file, "r");
+	if (envfile == NULL)
 		return 0;
 
 	while (0 != fgets(strp, MAXPATHLEN, envfile)) {
-
 		/* Keep reading ENVD_FILE until we get a line that
 		 * starts with 'PATH='
 		 */
 		if (((strp) && (strlen(strp) > strlen("PATH=")) &&
-			0 == strncmp("PATH=", strp, strlen("PATH=")))) {
+		    !strncmp("PATH=", strp, strlen("PATH=")))) {
 
 			token = strtok_r(strp, "=", &state);
-			if ((NULL != token) && (strlen(token) > 0))
+			if ((token != NULL) && strlen(token))
 				/* The second token should be the value of PATH .. */
 				token = strtok_r(NULL, "=", &state);
-			else {
-				fclose(envfile);
-				return 0;
-			}
+			else
+				goto bail;
 
-			if ((NULL != token) && (strlen(token) > 0)) {
-
+			if ((token != NULL) && strlen(token)) {
 				strp = token;
 				/* A bash variable may be unquoted, quoted with " or
 				 * quoted with ', so extract the value without those ..
 				 */
 				token = strtok(strp, "\n\"\'");
 
-				while (NULL != token) {
-
+				while (token != NULL) {
 					if (check_for_target(token, data)) {
-
 						fclose(envfile);
 						return 1;
 					}
@@ -170,14 +166,13 @@ static int find_target_in_envd(struct wrapper_data *data)
 					token = strtok(NULL, "\n\"\'");
 				}
 			}
-
 		}
 		strp = str;
 	}
 
+bail:
 	fclose(envfile);
-
-	return 0;
+	return (cross_compile ? 0 : find_target_in_envd(data, 1));
 }
 
 static void find_wrapper_target(struct wrapper_data *data)
@@ -185,28 +180,22 @@ static void find_wrapper_target(struct wrapper_data *data)
 	FILE *inpipe = NULL;
 	char str[MAXPATHLEN + 1];
 
-#ifndef CC_PROFILE
 	if (find_target_in_path(data))
 		return;
-#endif
 
-	if (find_target_in_envd(data))
+	if (find_target_in_envd(data, 0))
 		return;
 
 	/* Only our wrapper is in PATH, so
 	   get the CC path using gcc-config and
 	   execute the real binary in there... */
-#ifndef CC_PROFILE
 	inpipe = popen(GCC_CONFIG " --get-bin-path", "r");
-#else
-	inpipe = popen(GCC_CONFIG " --get-bin-path " CC_PROFILE, "r");
-#endif
-	if (NULL == inpipe)
+	if (inpipe == NULL)
 		wrapper_exit(
 			"Could not open pipe: %s\n",
 			wrapper_strerror(errno, data));
 
-	if (0 == fgets(str, MAXPATHLEN, inpipe))
+	if (fgets(str, MAXPATHLEN, inpipe) == 0)
 		wrapper_exit(
 			"Could not get compiler binary path: %s\n",
 			wrapper_strerror(errno, data));
@@ -227,15 +216,15 @@ static void modify_path(struct wrapper_data *data)
 	char *str2 = dname_data, *dname = dname_data;
 	size_t len = 0;
 
-	if (NULL == data->bin)
+	if (data->bin == NULL)
 		return;
 
 	snprintf(str2, MAXPATHLEN + 1, "%s", data->bin);
 
-	if (NULL == (dname = dirname(str2)))
+	if ((dname = dirname(str2)) == NULL)
 		return;
 
-	if (NULL == data->path)
+	if (data->path == NULL)
 		return;
 
 	/* Make a copy since strtok_r will modify path */
@@ -244,15 +233,15 @@ static void modify_path(struct wrapper_data *data)
 	token = strtok_r(str, ":", &state);
 
 	/* Check if we already appended our bin location to PATH */
-	if ((NULL != token) && (strlen(token) > 0)) {
-		if (0 == strcmp(token, dname))
+	if ((token != NULL) && strlen(token)) {
+		if (!strcmp(token, dname))
 			return;
 	}
 
 	len = strlen(dname) + strlen(data->path) + 2 + strlen("PATH") + 1;
 
 	newpath = (char *)malloc(len);
-	if (NULL == newpath)
+	if (newpath == NULL)
 		wrapper_exit("out of memory\n");
 	memset(newpath, 0, len);
 
@@ -260,7 +249,7 @@ static void modify_path(struct wrapper_data *data)
 	putenv(newpath);
 }
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
 	struct wrapper_data *data;
 	size_t size;
@@ -268,14 +257,14 @@ int main(int argc, char **argv)
 	int result = 0;
 
 	data = alloca(sizeof(*data));
-	if (NULL == data)
+	if (data == NULL)
 		wrapper_exit("%s wrapper: out of memory\n", argv[0]);
 	memset(data, 0, sizeof(*data));
 
 	path = getenv("PATH");
-	if (NULL != path) {
+	if (path != NULL) {
 		data->path = strdup(getenv("PATH"));
-		if (NULL == data->path)
+		if (data->path == NULL)
 			wrapper_exit("%s wrapper: out of memory\n", argv[0]);
 	}
 
@@ -283,13 +272,13 @@ int main(int argc, char **argv)
 	strcpy(data->name, basename(argv[0]));
 
 	/* cc calls "/full/path/to/gcc" ... */
-	if (0 == strcmp(data->name, "cc"))
+	if (!strcmp(data->name, "cc"))
 		strcpy(data->name, "gcc");
 
 	/* What is the full name of our wrapper? */
 	size = sizeof(data->fullname);
 	result = snprintf(data->fullname, size, "/usr/bin/%s", data->name);
-	if ((-1 == result) || (result > size))
+	if ((result == -1) || (result > size))
 		wrapper_exit("invalid wrapper name: \"%s\"\n", data->name);
 
 	find_wrapper_target(data);
@@ -300,8 +289,8 @@ int main(int argc, char **argv)
 		free(data->path);
 	data->path = NULL;
 
-	/* Set argv[0] to the correct binary, else gcc do not find internal
-	 * headers, etc (bug #8132). */
+	/* Set argv[0] to the correct binary, else gcc can't find internal headers
+	 * http://bugs.gentoo.org/show_bug.cgi?id=8132 */
 	argv[0] = data->bin;
 
 	/* Ok, do it ... */
