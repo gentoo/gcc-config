@@ -2,7 +2,7 @@
 # Copyright 1999-2002 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License
 # Author:  Martin Schlemmer <azarah@gentoo.org>
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.2.3,v 1.1 2002/12/16 18:13:02 azarah Exp $
+# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.2.4,v 1.1 2002/12/16 18:45:53 azarah Exp $
 
 
 source /etc/init.d/functions.sh || {
@@ -27,6 +27,10 @@ Options:
 	[--get-current-profile]
 
 		Print current used gcc profile.
+
+	[--list-profiles]
+
+	    Print a list of available profiles.
 
 	[--get-bin-path]
 
@@ -190,6 +194,22 @@ get_current_profile() {
 	return 0
 }
 
+list_profiles() {
+	if [ ! -f /etc/env.d/gcc/config ]
+	then
+		eerror "$0:  No gcc profile is active!"
+		return 1
+	fi
+
+	for x in /etc/env.d/gcc/*
+	do
+		if [ -f ${x} -a ${x} != "/etc/env.d/gcc/config" ]
+		then
+			echo "${x##*/}"
+		fi
+	done
+}
+
 get_bin_path() {
 	source /etc/env.d/gcc/${GCC_COMP}
 
@@ -236,6 +256,13 @@ do
 			then
 				NEED_ACTION="no"
 				DOIT="get_current_profile"
+			fi
+			;;
+		--list-profiles)
+			if [ "${NEED_ACTION}" = "yes" ]
+			then
+				NEED_ACTION="no"
+				DOIT="list_profiles"
 			fi
 			;;
 		--get-bin-path)
