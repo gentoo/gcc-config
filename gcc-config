@@ -1,8 +1,8 @@
 #!/bin/bash
-# Copyright 1999-2002 Gentoo Foundation
+# Copyright 1999-2003 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License
 # Author:  Martin Schlemmer <azarah@gentoo.org>
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.3.0,v 1.1 2003/01/15 22:28:10 azarah Exp $
+# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.3.1,v 1.1 2003/01/19 19:14:52 azarah Exp $
 
 
 source /etc/init.d/functions.sh || {
@@ -59,6 +59,27 @@ then
 	usage
 fi
 
+find_path() {
+	[ -z "$1" ] && return 0
+
+	if [ -n "$(which which 2> /dev/null)" -a -x "$(which $1)" ]
+	then
+		echo "$(which $1)"
+		return 0
+	fi
+
+	for x in /bin /sbin /usr/bin /usr/sbin
+	do
+		if [ -x "${x}/$1" -a -r "${x}/$1" ]
+		then
+			echo "${x}/$1"
+			break
+		fi
+	done
+
+	return 0
+}
+
 cmd_setup() {
 
 	# Sourcing /etc/env.d/gcc/${CC_COMP} is going to mess up
@@ -76,25 +97,23 @@ cmd_setup() {
 	ENV_UPDATE="$(find_path env-update)"
 }
 
-find_path() {
-	[ -z "$1" ] && return 0
-
-	for x in /bin /sbin /usr/bin /usr/sbin
-	do
-		if [ -x ${x}/$1 -a -r ${x}/$1 ]
-		then
-			echo "${x}/$1"
-			break
-		fi
-	done
-}
-
 CC_COMP=""
 REAL_CHOST="$(/usr/bin/python -c 'import portage; print portage.settings["CHOST"];')"
 
 switch_profile() {
 	local MY_LDPATH=""
 	local GCC_PROFILES=""
+	local OLD_CC_COMP=""
+
+	if [ -r /etc/env.d/gcc/config ]
+	then
+		source /etc/env.d/gcc/config
+
+		if [ -n "${CURRENT}" ]
+		then
+			OLD_CC_COMP="${CURRENT}"
+		fi
+	fi
 
 	if [ "$(id -u)" -ne 0 ]
 	then
@@ -120,18 +139,18 @@ switch_profile() {
 	# Extract all LDPATH's for our CHOST
 	for x in ${GCC_PROFILES}
 	do
-		if [ -f ${x} ]
+		if [ -f "${x}" ]
 		then
-			source ${x}
+			source "${x}"
 
 			if [ -z "${MY_LDPATH}" ]
 			then
-				if [ -d ${LDPATH} ]
+				if [ -d "${LDPATH}" ]
 				then
 					MY_LDPATH="${LDPATH}"
 				fi
 			else
-				if [ -d ${LDPATH} ]
+				if [ -d "${LDPATH}" ]
 				then
 					MY_LDPATH="${MY_LDPATH}:${LDPATH}"
 				fi
@@ -140,11 +159,11 @@ switch_profile() {
 	done
 
 	# Setup things properly again for this profile
-	source /etc/env.d/gcc/${CC_COMP}
+	source "/etc/env.d/gcc/${CC_COMP}"
 
 	# Setup /etc/env.d/05gcc
 	${AWK} '!/^STDCXX_INCDIR=|^LDPATH=/ {print $0}' \
-		/etc/env.d/gcc/${CC_COMP} > /etc/env.d/05gcc
+		"/etc/env.d/gcc/${CC_COMP}" > /etc/env.d/05gcc
 
 	# Add our custom LDPATH
 	echo "LDPATH=\"${MY_LDPATH}\"" >> /etc/env.d/05gcc
@@ -160,17 +179,31 @@ switch_profile() {
 	# for ccache and distcc anyhow ...
 	${RM} -f /lib/cpp
 	${CP} -f /usr/lib/gcc-config/wrapper /lib/cpp
-	for x in gcc cpp cc c++ g++ ${CHOST}-gcc ${CHOST}-c++ ${CHOST}-g++
+	for x in gcc cpp cc c++ g++ "${CHOST}-gcc" "${CHOST}-c++" "${CHOST}-g++"
 	do
-		${RM} -f /usr/bin/${x}
-		${CP} -f /usr/lib/gcc-config/wrapper /usr/bin/${x}
-		${TOUCH} -m /usr/bin/${x}
+		${RM} -f "/usr/bin/${x}"
+		${CP} -f /usr/lib/gcc-config/wrapper "/usr/bin/${x}"
+
+		if [ "${OLD_CC_COMP}" != "${CC_COMP}" ]
+		then
+			${TOUCH} -m "/usr/bin/${x}"
+		fi
 	done
 
 
 	${ENV_UPDATE} &> /dev/null
 
 	eend 0
+
+	if [ "${OLD_CC_COMP}" != "${CC_COMP}" ]
+	then
+		echo
+		ewarn "If you intend to use the gcc from the new profile in an already"
+		ewarn "running shell, please remember to do:"
+		echo
+		ewarn "  # source /etc/profile"
+		echo
+	fi
 
 	return 0
 }
@@ -204,7 +237,7 @@ list_profiles() {
 
 	for x in /etc/env.d/gcc/*
 	do
-		if [ -f ${x} -a ${x} != "/etc/env.d/gcc/config" ]
+		if [ -f "${x}" -a "${x}" != "/etc/env.d/gcc/config" ]
 		then
 			echo "${x##*/}"
 		fi
@@ -214,7 +247,7 @@ list_profiles() {
 print_environ() {
 	local OLDPATH="${PATH}"
 
-	source /etc/env.d/gcc/${CC_COMP}
+	source "/etc/env.d/gcc/${CC_COMP}"
 
 	echo "export PATH=\"${PATH}:${OLDPATH}\""
 
@@ -230,7 +263,7 @@ print_environ() {
 }
 
 get_bin_path() {
-	source /etc/env.d/gcc/${CC_COMP}
+	source "/etc/env.d/gcc/${CC_COMP}"
 
 	echo "${PATH}"
 
@@ -238,7 +271,7 @@ get_bin_path() {
 }
 
 get_lib_path() {
-	source /etc/env.d/gcc/${CC_COMP}
+	source "/etc/env.d/gcc/${CC_COMP}"
 
 	echo "${LDPATH}"
 
@@ -246,7 +279,7 @@ get_lib_path() {
 }
 
 get_stdcxx_incdir() {
-	source /etc/env.d/gcc/${CC_COMP}
+	source "/etc/env.d/gcc/${CC_COMP}"
 
 	echo "${LDPATH}/include/${STDCXX_INCDIR}"
 
@@ -259,7 +292,7 @@ CHECK_CHOST="no"
 
 for x in $*
 do
-	case ${x} in
+	case "${x}" in
 		# Only use specified compiler if one is not already selected.
 		--use-old)
 			if get_current_profile &> /dev/null
@@ -312,6 +345,10 @@ do
 				DOIT="get_stdcxx_incdir"
 			fi
 			;;
+		--*)
+			eerror "$0: Invalid switch!  Run $0 without parameters for help."
+			exit 1
+			;;
 		*)
 			if [ -z "${CC_COMP}" ]
 			then
@@ -337,8 +374,8 @@ then
 	fi
 fi
 
-if [ ! -d /usr/lib/gcc-lib/${CC_COMP%-*}/${CC_COMP##*-} -o \
-     ! -f /etc/env.d/gcc/${CC_COMP} ]
+if [ ! -d "/usr/lib/gcc-lib/${CC_COMP%-*}/${CC_COMP##*-}" -o \
+     ! -f "/etc/env.d/gcc/${CC_COMP}" ]
 then
 	eerror "$0: Profile does not exist!"
 	exit 1
