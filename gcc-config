@@ -1,8 +1,10 @@
 #!/bin/bash
 # Copyright 1999-2004 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.3.6,v 1.8 2004/10/11 14:36:40 vapier Exp $
+# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.3.7,v 1.1 2004/10/13 16:29:04 vapier Exp $
 # Author:  Martin Schlemmer <azarah@gentoo.org>
+
+trap ":" INT QUIT TSTP
 
 source /etc/init.d/functions.sh || {
 	echo "$0: Could not source /etc/init.d/functions.sh!"
@@ -15,26 +17,18 @@ Usage: gcc-config [options] [CC Profile]
 Change the current cc/gcc profile, or give info about profiles.
 
 Options:
-
   -O, --use-old              Use the old profile if one was selected.
-
   -P, --use-portage-chost    Only set to given profile if its CHOST is the
                              same as that set for portage in /etc/make.conf
                              (or one of other portage config files...).
-
   -c, --get-current-profile  Print current used gcc profile.
-
   -l, --list-profiles        Print a list of available profiles.
-
   -E, --print-environ        Print environment that can be used to setup the
                              current gcc profile, or a specified one.
-
   -B, --get-bin-path         Print path where binaries of the given/current
                              profile are located.
-
   -L, --get-lib-path         Print path where libraries of the given/current
                              profile are located.
-
   -X, --get-stdcxx-incdir    Print path where g++ include files of the
                              given/current profile are located.
 
@@ -74,7 +68,6 @@ find_path() {
 }
 
 cmd_setup() {
-
 	# Sourcing /etc/env.d/gcc/${CC_COMP} is going to mess up
 	# PATH among things...
 	CP="$(find_path cp)"
@@ -90,8 +83,6 @@ cmd_setup() {
 	ENV_UPDATE="$(find_path env-update)"
 }
 
-CC_COMP=
-
 get_real_chost() {
 	[ -n "${REAL_CHOST}" ] && return 0
 
@@ -100,7 +91,7 @@ get_real_chost() {
 
 	if [ -z "${REAL_CHOST}" ]
 	then
-		eerror "$0:  Could not get portage CHOST!"
+		eerror "$0: Could not get portage CHOST!"
 		return 1
 	fi
 }
@@ -111,20 +102,20 @@ switch_profile() {
 	local OLD_CC_COMP=
 	local GCC_BIN_PATH=
 
-	if [ -r /etc/env.d/gcc/config ]
+	if [ "$(id -u)" -ne 0 ]
 	then
-		source /etc/env.d/gcc/config
+		eerror "$0: Must be root."
+		exit 1
+	fi
+
+	if [ -r "${GCC_ENV_D}/config" ]
+	then
+		source "${GCC_ENV_D}/config"
 
 		if [ -n "${CURRENT}" ]
 		then
 			OLD_CC_COMP="${CURRENT}"
 		fi
-	fi
-
-	if [ "$(id -u)" -ne 0 ]
-	then
-		eerror "$0: Must be root."
-		exit 1
 	fi
 
 	ebegin "Switching to ${CC_COMP} compiler"
@@ -133,15 +124,14 @@ switch_profile() {
 	# PATH among things...
 	cmd_setup
 
-	# Order our profiles to have the default first...
+	# Order our profiles to have the default first ...
 	# We do this so that we can have them ordered with default
 	# first in /etc/ld.so.conf, as the logical is that all
 	# compilers for default CHOST will be used to compile stuff,
 	# and thus we want all their lib paths in /etc/ld.so.conf ...
 	get_real_chost
-	GCC_PROFILES="$(${FIND} /etc/env.d/gcc/ -name "${REAL_CHOST}-*")"
-	GCC_PROFILES="${GCC_PROFILES/\/etc\/env.d\/gcc\/${CC_COMP}}"
-	GCC_PROFILES="/etc/env.d/gcc/${CC_COMP} ${GCC_PROFILES}"
+	GCC_PROFILES="$(${FIND} "${GCC_ENV_D}" -name "${REAL_CHOST}-*" -a ! -name "${CC_COMP}")"
+	GCC_PROFILES="${GCC_ENV_D}/${CC_COMP} ${GCC_PROFILES}"
 
 	# Extract all LDPATH's for our CHOST
 	for x in ${GCC_PROFILES}
@@ -174,19 +164,19 @@ switch_profile() {
 	done
 
 	# Setup things properly again for this profile
-	source "/etc/env.d/gcc/${CC_COMP}"
+	source "${GCC_ENV_D}/${CC_COMP}"
 
 	# Setup /etc/env.d/05gcc
-	${AWK} '!/^STDCXX_INCDIR=|^LDPATH=/ {print $0}' \
-		"/etc/env.d/gcc/${CC_COMP}" > /etc/env.d/05gcc
+	${AWK} '!/^(STDCXX_INCDIR|LDPATH|CC|CXX)=/ {print $0}' \
+		"${GCC_ENV_D}/${CC_COMP}" > "${ENV_D}/05gcc"
 
 	# Add our custom LDPATH
-	echo "LDPATH=\"${MY_LDPATH}\"" >> /etc/env.d/05gcc
+	echo "LDPATH=\"${MY_LDPATH}\"" >> "${ENV_D}/05gcc"
 
 	# Make sure we do not recreate /lib/cpp and /usr/bin/cc ...
-#	echo "DISABLE_GEN_GCC_WRAPPERS=\"yes\"" >> /etc/env.d/05gcc
+#	echo "DISABLE_GEN_GCC_WRAPPERS=\"yes\"" >> "${ENV_D}/05gcc"
 
-	echo "CURRENT=${CC_COMP}" > /etc/env.d/gcc/config
+	echo "CURRENT=${CC_COMP}" > ${GCC_ENV_D}/config
 
 	# Save PATH
 	GCC_BIN_PATH="${PATH}"
@@ -195,35 +185,38 @@ switch_profile() {
 
 	# These might not be installed, and we want to update the mtime
 	# for ccache and distcc anyhow ...
-	${RM} -f /lib/cpp
-	${CP} -f /usr/lib/gcc-config/wrapper /lib/cpp
-	for x in gcc cpp cc c++ g++ f77 gcj \
+	${RM} -f "${ROOT}/lib/cpp"
+	${CP} -f "${ROOT}/usr/lib/gcc-config/wrapper" "${ROOT}/lib/cpp"
+	for x in gcc cpp cc c++ g++ f77 g77 gcj \
 	         ${REAL_CHOST}-gcc ${REAL_CHOST}-c++ ${REAL_CHOST}-g++ \
-	         ${REAL_CHOST}-f77 ${REAL_CHOST}-gcj
+	         ${REAL_CHOST}-f77 ${REAL_CHOST}-g77 ${REAL_CHOST}-gcj
 	do
 		# Make sure we have no stale wrappers
-		${RM} -f "/usr/bin/${x}"
+		${RM} -f "${ROOT}/usr/bin/${x}"
 
-		if [ -x "${GCC_BIN_PATH}/${x}" -o \
+		if [ -x "${ROOT}/${GCC_BIN_PATH}/${x}" -o \
 		     "${x}" = "c++" -o "${x}" = "${REAL_CHOST}-c++" -o \
 		     "${x}" = "cpp" -o "${x}" = "cc" ]
 		then
 			# Only install a wrapper if the binary exists ...
-			${CP} -f /usr/lib/gcc-config/wrapper "/usr/bin/${x}"
+			${CP} -f "${ROOT}"/usr/lib/gcc-config/wrapper" \
+			         "${ROOT}/usr/bin/${x}"
 
 			if [ "${OLD_CC_COMP}" != "${CC_COMP}" ]
 			then
-				${TOUCH} -m "/usr/bin/${x}"
+				${TOUCH} -m "${ROOT}/usr/bin/${x}"
 			fi
 		fi
 	done
 
-
-	${ENV_UPDATE} &> /dev/null
+	if [ "${ROOT}" == "/" ]
+	then
+		${ENV_UPDATE} &> /dev/null
+	fi
 
 	eend 0
 
-	if [ "${OLD_CC_COMP}" != "${CC_COMP}" ]
+	if [ "${ROOT}" == "/" ] && [ "${OLD_CC_COMP}" != "${CC_COMP}" ]
 	then
 		echo
 		ewarn "If you intend to use the gcc from the new profile in an already"
@@ -237,17 +230,17 @@ switch_profile() {
 }
 
 get_current_profile() {
-	if [ ! -f /etc/env.d/gcc/config ]
+	if [ ! -f "${GCC_ENV_D}/config" ]
 	then
-		eerror "$0:  No gcc profile is active!"
+		eerror "$0: No gcc profile is active!"
 		return 1
 	fi
 
-	source /etc/env.d/gcc/config
+	source "${GCC_ENV_D}/config"
 
 	if [ -z "${CURRENT}" ]
 	then
-		eerror "$0:  No gcc profile is active!"
+		eerror "$0: No gcc profile is active!"
 		return 1
 	fi
 
@@ -259,17 +252,20 @@ get_current_profile() {
 list_profiles() {
 	local i=1
 
-	if [ ! -f /etc/env.d/gcc/config ]
+	if [ ! -f "${GCC_ENV_D}/config" ]
 	then
-		eerror "$0:  No gcc profile is active!"
-		return 1
+		eerror "$0: No gcc profile is active; please select one!"
+	else
+		get_current_profile > /dev/null
 	fi
 
-	get_current_profile > /dev/null
-
-	for x in /etc/env.d/gcc/*
+	if [ "${ROOT}" != "/" ]
+	then
+		echo "Using gcc-config info in ${ROOT}"
+	fi
+	for x in "${GCC_ENV_D}"/*
 	do
-		if [ -f "${x}" -a "${x}" != "/etc/env.d/gcc/config" ]
+		if [ -f "${x}" -a "${x}" != "${GCC_ENV_D}/config" ]
 		then
 			x="${x##*/}"
 			[ "${x}" == "${CURRENT}" ] && x="${x} *"
@@ -284,7 +280,7 @@ print_environ() {
 	local ENV_CMD=
 	local SET_ELEMENT=
 
-	source "/etc/env.d/gcc/${CC_COMP}"
+	source "${GCC_ENV_D}/${CC_COMP}"
 
 	case ${SHELL} in
 		*/csh|*/tsch)
@@ -304,41 +300,41 @@ print_environ() {
 #	else
 #		echo "${ENV_CMD} LD_LIBRARY_PATH${SET_ELEMENT}\"${LDPATH}:${LD_LIBRARY_PATH}\""
 #	fi
-	echo "${ENV_CMD} CC${SET_ELEMENT}\"${CC}\""
-	echo "${ENV_CMD} CXX${SET_ELEMENT}\"${CXX}\""
+#	echo "${ENV_CMD} CC${SET_ELEMENT}\"${CC}\""
+#	echo "${ENV_CMD} CXX${SET_ELEMENT}\"${CXX}\""
 }
 
 get_bin_path() {
-	if [ -e /etc/env.d/gcc/${CC_COMP} ] ; then
-		source "/etc/env.d/gcc/${CC_COMP}"
+	if [ -e "${GCC_ENV_D}/${CC_COMP}" ] ; then
+		source "${GCC_ENV_D}/${CC_COMP}"
 		echo "${PATH}"
 	else
 		echo "no-config"
-		echo "/etc/env.d/gcc/${CC_COMP} doesnt exist" 1>&2
+		echo "${GCC_ENV_D}/${CC_COMP} doesnt exist" 1>&2
 	fi
 
 	return 0
 }
 
 get_lib_path() {
-	if [ -e /etc/env.d/gcc/${CC_COMP} ] ; then
-		source "/etc/env.d/gcc/${CC_COMP}"
+	if [ -e "${GCC_ENV_D}/${CC_COMP}" ] ; then
+		source "${GCC_ENV_D}/${CC_COMP}"
 		echo "${LDPATH}"
 	else
 		echo "no-config"
-		echo "/etc/env.d/gcc/${CC_COMP} doesnt exist" 1>&2
+		echo "${GCC_ENV_D}/${CC_COMP} doesnt exist" 1>&2
 	fi
 
 	return 0
 }
 
 get_stdcxx_incdir() {
-	if [ -e /etc/env.d/gcc/${CC_COMP} ] ; then
-		source "/etc/env.d/gcc/${CC_COMP}"
+	if [ -e "${GCC_ENV_D}/${CC_COMP}" ] ; then
+		source "${GCC_ENV_D}/${CC_COMP}"
 		echo "${LDPATH}/include/${STDCXX_INCDIR}"
 	else
 		echo "no-config"
-		echo "/etc/env.d/gcc/${CC_COMP} doesnt exist" 1>&2
+		echo "${GCC_ENV_D}/${CC_COMP} doesnt exist" 1>&2
 	fi
 
 	return 0
@@ -347,6 +343,11 @@ get_stdcxx_incdir() {
 NEED_ACTION="yes"
 DOIT="switch_profile"
 CHECK_CHOST="no"
+
+CC_COMP=
+[ -z "${ROOT}" ] && ROOT="/"
+ENV_D="${ROOT}etc/env.d"
+GCC_ENV_D="${ENV_D}/gcc"
 
 for x in "$@"
 do
@@ -418,24 +419,34 @@ do
 		*)
 			if [ -z "${CC_COMP}" ]
 			then
-				if [ -n "`echo ${x} | gawk '/^[[:digit:]]*$/ { print }'`" ]
+				if [ -z "$(echo ${x} | tr -d '[:digit:]')" ]
 				then
+					# User gave us a # representing the profile
 					i=1
-					for y in /etc/env.d/gcc/*
+					for y in "${GCC_ENV_D}"/*
 					do
-						[ "${y}" = "/etc/env.d/gcc/config" ] && continue
+						[ "${y}" == "${GCC_ENV_D}/config" ] && continue
 
-						if [ -f "${y}" -a "${x}" -eq "${i}" ]
+						if [ -f "${y}" ] && [ "${x}" -eq "${i}" ]
 						then
 							CC_COMP="${y##*/}"
 							break
-						else
-							i=$((i + 1))
 						fi
+						i=$((i + 1))
 					done
 				else
+					# User gave us a full HOST-gccver
+					x="${x##*/}"
+					if [ ! -f "${GCC_ENV_D}/${x}" ]
+					then
+						eerror "$0: Could not locate '$x' in '${GCC_ENV_D}/'!"
+						exit 1
+					fi
 					CC_COMP="${x}"
 				fi
+			else
+				eerror "$0: Too many arguments!  Run $0 without parameters for help."
+				exit 1
 			fi
 			;;
 	esac
@@ -452,17 +463,17 @@ then
 	then
 		CC_COMP="$(get_current_profile)"
 	else
-		eerror "$0: No default profile setup!"
+		list_profiles
 		exit 1
 	fi
 fi
 
 CC_COMP_NO_SPECS=$(echo ${CC_COMP} | awk -F- '{ print $1"-"$2"-"$3"-"$4"-"$5 }')
 
-if [ ! -d "/usr/lib/gcc-lib/${CC_COMP_NO_SPECS%-*}/${CC_COMP_NO_SPECS##*-}" -o \
-     ! -f "/etc/env.d/gcc/${CC_COMP}" ]
+if [ ! -d "${ROOT}/usr/lib/gcc-lib/${CC_COMP_NO_SPECS%-*}/${CC_COMP_NO_SPECS##*-}" -o \
+     ! -f "${GCC_ENV_D}/${CC_COMP}" ]
 then
-	eerror "$0: Profile does not exist or invalid setting for /etc/env.d/gcc/${CC_COMP}"
+	eerror "$0: Profile does not exist or invalid setting for ${GCC_ENV_D}/${CC_COMP}"
 	#exit 1
 fi
 
