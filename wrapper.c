@@ -1,7 +1,7 @@
 /*
  * Copyright 1999-2004 Gentoo Foundation
  * Distributed under the terms of the GNU General Public License v2
- * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.5.c,v 1.3 2005/02/07 19:24:21 eradicator Exp $
+ * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.6.c,v 1.1 2005/02/19 10:04:01 eradicator Exp $
  * Author: Martin Schlemmer <azarah@gentoo.org>
  */
 
@@ -294,10 +294,9 @@ static char **getNewArgv(char **argv, const char *newflagsStr) {
 		                     strncmp(*p, "-m64", 4) == 0 ||
 		                     strncmp(*p, "-mabi", 5) == 0)) {
 			/* Our command line sets the ABI, warn the user about this and ignore
-		     newArgs by setting newflagsCount to 0.
+			 * newArgs by setting newflagsCount to 0.
 			 */
 			newflagsCount = 0;
-			fprintf(stderr, "%s: gcc-wrapper: %s detected on the command line overrides implicit %s added by the wrapper.\n", argv[0], *p, newflagsStr);
 		}
 	}
 
