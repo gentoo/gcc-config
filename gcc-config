@@ -2,7 +2,7 @@
 # Copyright 1999-2003 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License
 # Author:  Martin Schlemmer <azarah@gentoo.org>
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.3.1,v 1.3 2003/04/06 22:18:42 zwelch Exp $
+# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.3.2,v 1.1 2003/04/08 12:53:38 azarah Exp $
 
 
 source /etc/init.d/functions.sh || {
@@ -109,12 +109,18 @@ cmd_setup() {
 }
 
 CC_COMP=""
-REAL_CHOST="$(/usr/bin/python -c 'import portage; print portage.settings["CHOST"];' 2> /dev/null)"
-if [ -z "${REAL_CHOST}" ]
-then
-	eerror "$0:  Could not get portage CHOST!"
-	exit 1
-fi
+
+get_real_chost() {
+	[ -n "$REAL_CHOST" ] && return 0
+
+	REAL_CHOST="$(portageq envvar CHOST)"
+
+	if [ -z "${REAL_CHOST}" ]
+	then
+		eerror "$0:  Could not get portage CHOST!"
+		return 1
+	fi
+}
 
 switch_profile() {
 	local MY_LDPATH=""
@@ -148,6 +154,7 @@ switch_profile() {
 	# first in /etc/ld.so.conf, as the logical is that all
 	# compilers for default CHOST will be used to compile stuff,
 	# and thus we want all their lib paths in /etc/ld.so.conf ...
+	get_real_chost
 	GCC_PROFILES="$(${FIND} /etc/env.d/gcc/ -name "${REAL_CHOST}-*")"
 	GCC_PROFILES="${GCC_PROFILES/\/etc\/env.d\/gcc\/${CC_COMP}}"
 	GCC_PROFILES="/etc/env.d/gcc/${CC_COMP} ${GCC_PROFILES}"
@@ -397,11 +404,12 @@ then
 	exit 1
 fi
 
-# Chosen CHOST are not the same as the real CHOST according to make.conf,
-# and --use-portage-chost option was given, so do nothing ...
-if [ "${CHECK_CHOST}" = "yes" -a "${CC_COMP%-*}" != "${REAL_CHOST}" ]
+if [ "${CHECK_CHOST}" = "yes" ]
 then
-	exit 0
+	# Chosen CHOST are not the same as the real CHOST according to
+	# make.conf, and --use-portage-chost option was given, so do nothing
+	get_real_chost
+	[ "${CC_COMP%-*}" != "${REAL_CHOST}" ] && exit 0
 fi
 
 eval ${DOIT}
