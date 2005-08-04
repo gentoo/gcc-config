@@ -1,7 +1,7 @@
 /*
  * Copyright 1999-2005 Gentoo Foundation
  * Distributed under the terms of the GNU General Public License v2
- * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.6.c,v 1.4 2005/07/23 05:05:52 vapier Exp $
+ * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.7.c,v 1.1 2005/08/04 03:40:05 vapier Exp $
  * Author: Martin Schlemmer <azarah@gentoo.org>
  * az's lackey: Mike Frysinger <vapier@gentoo.org>
  */
@@ -32,6 +32,15 @@ struct wrapper_data {
 	char *path;
 };
 
+static struct {
+	char *alias;
+	char *target;
+} wrapper_aliases[] = {
+	{ "cc",  "gcc" },
+	{ "f77", "g77" },
+	{ NULL, NULL }
+};
+
 static const char *wrapper_strerror(int err, struct wrapper_data *data)
 {
 	/* this app doesn't use threads and strerror
@@ -57,7 +66,7 @@ static void wrapper_exit(char *msg, ...)
 static int check_for_target(char *path, struct wrapper_data *data)
 {
 	struct stat sbuf;
-	int result = 0;
+	int result;
 	char str[MAXPATHLEN + 1];
 	size_t len = strlen(path) + strlen(data->name) + 2;
 
@@ -249,88 +258,53 @@ static void modify_path(struct wrapper_data *data)
 	putenv(newpath);
 }
 
-#define MAXNEWFLAGS 32
-#define MAXFLAGLEN  127
+static char *abi_flags[] = {
+	"-m32", "-m64", "-mabi", NULL
+};
+static char **build_new_argv(char **argv, const char *newflags_str)
+{
+#define MAX_NEWFLAGS 32
+	char *newflags[MAX_NEWFLAGS];
+	char **retargv;
+	unsigned int argc, i;
+	char *state, *flags_tokenized;
 
-static char **getNewArgv(char **argv, const char *newflagsStr) {
-	char **newargv;
-	char newflags[MAXNEWFLAGS][MAXFLAGLEN + 1];
-	unsigned newflagsCount = 0;
-	unsigned argc;
-	unsigned i;
-	char **p;
+	retargv = argv;
 
-	unsigned s, f; /* start/finish of each flag. f points to
-	                * the char AFTER the end (ie the space/\0
-	                */
+	/* make sure user hasn't specified any ABI flags already ...
+	 * if they have, lets just get out of here */
+	for (argc = 0; argv[argc]; ++argc)
+		for (i = 0; abi_flags[i]; ++i)
+			if (!strncmp(argv[argc], abi_flags[i], strlen(abi_flags[i])))
+				return retargv;
 
-	/* Tokenize the flag list */
-	for(s=0; s < strlen(newflagsStr); s=f+1) {
-		/* Put s at the start of the next flag */
-		while(newflagsStr[s] == ' ' ||
-		      newflagsStr[s] == '\t')
-			s++;
-		if(s == strlen(newflagsStr))
-			break;
+	/* Tokenize the flag list and put it into newflags array */
+	flags_tokenized = strdup(newflags_str);
+	if (flags_tokenized == NULL)
+		return retargv;
+	i = 0;
+	newflags[i] = strtok_r(flags_tokenized, " \t\n", &state);
+	while (newflags[i] != NULL && i < MAX_NEWFLAGS-1)
+		newflags[++i] = strtok_r(NULL, " \t\n", &state);
 
-		f = s + 1;
-		while(newflagsStr[f] != ' ' &&
-		      newflagsStr[f] != '\t' &&
-		      newflagsStr[f] != '\0')
-			f++;
+	/* allocate memory for our spiffy new argv */
+	retargv = (char**)calloc(argc + i + 1, sizeof(char*));
+	/* start building retargv */
+	retargv[0] = argv[0];
+	/* insert the ABI flags first so cmdline always overrides ABI flags */
+	memcpy(retargv+1, newflags, i * sizeof(char*));
+	/* copy over the old argv */
+	if (argc > 1)
+		memcpy(retargv+1+i, argv+1, (argc-1) * sizeof(char*));
 
-		/* Detect overrun */
-		if(MAXFLAGLEN < f - s || MAXNEWFLAGS == newflagsCount)
-			return NULL;
-
-		strncpy(newflags[newflagsCount], newflagsStr + s, f - s);
-		newflags[newflagsCount][f - s]='\0';
-		newflagsCount++;
-	}
-
-	/* Calculate original argc and see if it contains -m{abi,32,64} */
-	for(argc=0, p=argv; *p; p++, argc++) {
-		if(newflagsCount && (strncmp(*p, "-m32", 4) == 0 ||
-		                     strncmp(*p, "-m64", 4) == 0 ||
-		                     strncmp(*p, "-mabi", 5) == 0)) {
-			/* Our command line sets the ABI, warn the user about this and ignore
-			 * newArgs by setting newflagsCount to 0.
-			 */
-			newflagsCount = 0;
-		}
-	}
-
-	/* Allocate our array Make room for the original, new ones, and the
-           NULL terminator */
-	newargv = (char **)malloc(sizeof(char *) * (argc + newflagsCount + 1));
-	if(!newargv)
-		return NULL;
-
-	/* Build argv */
-	newargv[0] = argv[0];
-
-	/* The newFlags come first since we want the environment to override them. */
-	for(i=1; i - 1 < newflagsCount; i++) {
-		newargv[i] = newflags[i - 1];
-	}
-
-	/* We just use the existing argv[i] as the start. */
-	for(; i - newflagsCount < argc; i++) {
-		newargv[i] = argv[i - newflagsCount];
-	}
-
-	/* And now cap it off... */
-	newargv[i] = NULL;
-
-	return newargv;
+	return retargv;
 }
 
 int main(int argc, char *argv[])
 {
 	struct wrapper_data *data;
 	size_t size;
-	char *path;
-	int result = 0;
+	int i;
 	char **newargv = argv;
 
 	data = alloca(sizeof(*data));
@@ -338,8 +312,7 @@ int main(int argc, char *argv[])
 		wrapper_exit("%s wrapper: out of memory\n", argv[0]);
 	memset(data, 0, sizeof(*data));
 
-	path = getenv("PATH");
-	if (path != NULL) {
+	if (getenv("PATH")) {
 		data->path = strdup(getenv("PATH"));
 		if (data->path == NULL)
 			wrapper_exit("%s wrapper: out of memory\n", argv[0]);
@@ -348,16 +321,15 @@ int main(int argc, char *argv[])
 	/* What should we find ? */
 	strcpy(data->name, basename(argv[0]));
 
-	/* cc calls "/full/path/to/gcc" ... */
-	if (!strcmp(data->name, "cc"))
-		strcpy(data->name, "gcc");
-	if (!strcmp(data->name, "f77"))
-		data->name[0] = 'g';
+	/* Allow for common compiler names like cc->gcc */
+	for (i = 0; wrapper_aliases[i].alias; ++i)
+		if (!strcmp(data->name, wrapper_aliases[i].alias))
+			strcpy(data->name, wrapper_aliases[i].target);
 
 	/* What is the full name of our wrapper? */
 	size = sizeof(data->fullname);
-	result = snprintf(data->fullname, size, "/usr/bin/%s", data->name);
-	if ((result == -1) || (result > size))
+	i = snprintf(data->fullname, size, "/usr/bin/%s", data->name);
+	if ((i == -1) || (i > (int)size))
 		wrapper_exit("invalid wrapper name: \"%s\"\n", data->name);
 
 	find_wrapper_target(data);
@@ -378,30 +350,26 @@ int main(int argc, char *argv[])
 	size = strlen(data->bin) - 2;
 	if(!strcmp(data->bin + size, "32") ) {
 		*(data->bin + size) = '\0';
-		newargv = getNewArgv(argv, "-m32");
+		newargv = build_new_argv(argv, "-m32");
 	} else if (!strcmp(data->bin + size, "64") ) {
 		*(data->bin + size) = '\0';
-		newargv = getNewArgv(argv, "-m64");
+		newargv = build_new_argv(argv, "-m64");
 	} else if(getenv("ABI")) {
-		char *envar = (char *)malloc(sizeof(char) * (strlen("CFLAGS_") + strlen(getenv("ABI")) + 1 ));
-		if(!envar)
-			wrapper_exit("%s wrapper: out of memory\n", argv[0]);
+		char envvar[50];
 
 		/* We use CFLAGS_${ABI} for gcc, g++, g77, etc as they are
 		 * the same no matter which compiler we are using.
 		 */
-		sprintf(envar, "CFLAGS_%s", getenv("ABI"));
+		snprintf(envvar, sizeof(envvar), "CFLAGS_%s", getenv("ABI"));
 
-		if(getenv(envar)) {
-			newargv = getNewArgv(argv, getenv(envar));
+		if (getenv(envvar)) {
+			newargv = build_new_argv(argv, getenv(envvar));
 			if(!newargv)
 				wrapper_exit("%s wrapper: out of memory\n", argv[0]);
 		}
-
-		free(envar);
 	}
 
-	/* Ok, do it ... */
+	/* Ok, lets do it one more time ... */
 	if (execv(data->bin, newargv) < 0)
 		wrapper_exit("Could not run/locate \"%s\"\n", data->name);
 
