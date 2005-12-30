@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copyright 1999-2005 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.3.12,v 1.12 2005/12/27 02:45:48 vapier Exp $
+# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.3.13,v 1.1 2005/12/30 11:04:41 vapier Exp $
 
 trap ":" INT QUIT TSTP
 
@@ -269,23 +269,29 @@ switch_profile() {
 	# We need to make sure that libgcc_s.so / libunwind.so make it into /lib.
 	# On many systems (x86/amd64/etc...), this will probably never matter,
 	# but on other systems (arm/mips/etc...), this is quite critical.
-	# http://bugs.gentoo.org/show_bug.cgi?id=60190
+	# http://bugs.gentoo.org/60190
 	#
-	# Don't copy the library if we're being called by portage because
-	# this may cause python to start segfaulting all over the place
-	# since on many arches, it uses libgcc_s.so.
-	if [[ -z ${PORTAGE_CALLER} ]] && ! is_cross_compiler; then
-		for multilib in $(${ROOT}/${GCC_BIN_PATH}/gcc -print-multi-lib); do
+	# The funky move magic is required for proper updating of in-use files.
+	if ! is_cross_compiler ; then
+		# Need to cut out extra paths in multilib case and pray the first path
+		# is the "root" multilib path ... maybe some day change this to use
+		# `gcc -print-file-name` ...
+		LDPATH=${LDPATH%%:*}
+		for multilib in $("${ROOT}/${GCC_BIN_PATH}"/gcc -print-multi-lib); do
 			multiarg=${multilib#*;}
 			multiarg=${multiarg/@/-}
 			multilibdir=${multilib%;*}
-			libdir="lib/$(${ROOT}/${GCC_BIN_PATH}/gcc ${multiarg} -print-multi-os-directory)"
-			for gcclib in gcc_s unwind ; do
-				if [[ -e ${ROOT}/${LDPATH}/${multildir}/lib${gcclib}.so ]]; then
-					${RM} -f "${ROOT}/${libdir}"/lib${gcclib}.so*
-					${CP} -pP "${ROOT}/${LDPATH}/${multilibdir}"/lib${gcclib}.so* "${ROOT}/${libdir}"/
-				fi
-			done
+			libdir="lib/"$("${ROOT}/${GCC_BIN_PATH}"/gcc ${multiarg} -print-multi-os-directory)
+			if mkdir -p "${ROOT}/${libdir}"/.gcc.config.new ; then
+				for gcclib in gcc_s unwind ; do
+					if [[ -n $(ls "${ROOT}/${LDPATH}/${multilibdir}"/lib${gcclib}.so.* 2>/dev/null) ]]; then
+						${CP} -pP "${ROOT}/${LDPATH}/${multilibdir}"/lib${gcclib}.so.* "${ROOT}/${libdir}"/.gcc.config.new/
+						${RM} -f "${ROOT}/${libdir}"/lib${gcclib}.so*
+						${MV} -f "${ROOT}/${libdir}"/.gcc.config.new/* "${ROOT}/${libdir}"/
+					fi
+				done
+				rmdir "${ROOT}/${libdir}"/.gcc.config.new
+			fi
 		done
 		unset multilib
 		unset multilibdir
