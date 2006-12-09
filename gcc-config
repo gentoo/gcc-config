@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copyright 1999-2006 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.3.14,v 1.2 2006/10/31 07:35:43 vapier Exp $
+# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.3.15,v 1.1 2006/12/09 07:33:09 vapier Exp $
 
 trap ":" INT QUIT TSTP
 
@@ -147,6 +147,32 @@ is_cross_compiler() {
 	[[ ${CC_COMP/${REAL_CHOST}} == ${CC_COMP} ]]
 }
 
+# bool files_exists(search_path, files)
+#	Return shell true if the specified files exist.
+#	Files with relative paths are searched for in search_path.
+#	Both lists are : delimited.
+files_exist() {
+	local p f ret old_IFS
+	local paths=$1 files=$2
+
+	old_IFS=${IFS}
+	export IFS=":"
+
+	ret=0
+	for f in ${files} ; do
+		if [[ ${f} == /* ]] ; then
+			[[ ! -f ${f} ]] && ret=1 && break
+		else
+			for p in ${paths} ; do
+				[[ ! -f ${p}/${f} ]] && ret=1 && break 2
+			done
+		fi
+	done
+
+	export IFS=${old_IFS}
+	return ${ret}
+}
+
 switch_profile() {
 	local MY_LDPATH=
 	local GCC_PROFILES=
@@ -219,7 +245,7 @@ switch_profile() {
 		${AWK} '!/^(STDCXX_INCDIR|LDPATH|CC|CXX|CTARGET|GCCBITS|GCC_SPECS)=/ {print $0}' \
 			"${GCC_ENV_D}/${CC_COMP}" > "${ENV_D}/05gcc"
 		echo "LDPATH=\"${MY_LDPATH}\"" >> "${ENV_D}/05gcc"
-		if [[ -n ${GCC_SPECS} ]] && [[ -e ${ROOT}/${GCC_SPECS} ]] ; then
+		if [[ -n ${GCC_SPECS} ]] && files_exist ${MY_LDPATH} ${GCC_SPECS} ; then
 			echo "GCC_SPECS=\"${GCC_SPECS}\"" >> "${ENV_D}/05gcc"
 		else
 			# People need to rebuild their gcc or setting GCC_SPECS to
@@ -231,7 +257,7 @@ switch_profile() {
 					echo
 					ewarn "Your gcc has a bug with GCC_SPECS."
 					ewarn "Please re-emerge gcc."
-					ewarn "http://bugs.gentoo.org/show_bug.cgi?id=68395"
+					ewarn "http://bugs.gentoo.org/68395"
 					echo
 				else
 					echo "GCC_SPECS=\"\"" >> "${ENV_D}/05gcc"
@@ -245,7 +271,7 @@ switch_profile() {
 	# Save PATH
 	GCC_BIN_PATH=${PATH}
 	# Fix environment
-	source /etc/profile
+	source /etc/profile >& /dev/null
 	umask 022
 	# Find the bin wrapper
 	local wrapper
