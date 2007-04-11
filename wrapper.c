@@ -1,7 +1,7 @@
 /*
  * Copyright 1999-2005 Gentoo Foundation
  * Distributed under the terms of the GNU General Public License v2
- * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.7.c,v 1.1 2005/08/04 03:40:05 vapier Exp $
+ * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.8.c,v 1.1 2007/04/11 08:51:31 vapier Exp $
  * Author: Martin Schlemmer <azarah@gentoo.org>
  * az's lackey: Mike Frysinger <vapier@gentoo.org>
  */
@@ -302,57 +302,54 @@ static char **build_new_argv(char **argv, const char *newflags_str)
 
 int main(int argc, char *argv[])
 {
-	struct wrapper_data *data;
+	struct wrapper_data data;
 	size_t size;
 	int i;
 	char **newargv = argv;
 
-	data = alloca(sizeof(*data));
-	if (data == NULL)
-		wrapper_exit("%s wrapper: out of memory\n", argv[0]);
-	memset(data, 0, sizeof(*data));
+	memset(&data, 0, sizeof(data));
 
 	if (getenv("PATH")) {
-		data->path = strdup(getenv("PATH"));
-		if (data->path == NULL)
+		data.path = strdup(getenv("PATH"));
+		if (data.path == NULL)
 			wrapper_exit("%s wrapper: out of memory\n", argv[0]);
 	}
 
 	/* What should we find ? */
-	strcpy(data->name, basename(argv[0]));
+	strcpy(data.name, basename(argv[0]));
 
 	/* Allow for common compiler names like cc->gcc */
 	for (i = 0; wrapper_aliases[i].alias; ++i)
-		if (!strcmp(data->name, wrapper_aliases[i].alias))
-			strcpy(data->name, wrapper_aliases[i].target);
+		if (!strcmp(data.name, wrapper_aliases[i].alias))
+			strcpy(data.name, wrapper_aliases[i].target);
 
 	/* What is the full name of our wrapper? */
-	size = sizeof(data->fullname);
-	i = snprintf(data->fullname, size, "/usr/bin/%s", data->name);
+	size = sizeof(data.fullname);
+	i = snprintf(data.fullname, size, "/usr/bin/%s", data.name);
 	if ((i == -1) || (i > (int)size))
-		wrapper_exit("invalid wrapper name: \"%s\"\n", data->name);
+		wrapper_exit("invalid wrapper name: \"%s\"\n", data.name);
 
-	find_wrapper_target(data);
+	find_wrapper_target(&data);
 
-	modify_path(data);
+	modify_path(&data);
 
-	if (data->path)
-		free(data->path);
-	data->path = NULL;
+	if (data.path)
+		free(data.path);
+	data.path = NULL;
 
 	/* Set argv[0] to the correct binary, else gcc can't find internal headers
 	 * http://bugs.gentoo.org/show_bug.cgi?id=8132 */
-	argv[0] = data->bin;
+	argv[0] = data.bin;
 
 	/* If this is g{cc,++}{32,64}, we need to add -m{32,64}
 	 * otherwise  we need to add ${CFLAGS_${ABI}}
 	 */
-	size = strlen(data->bin) - 2;
-	if(!strcmp(data->bin + size, "32") ) {
-		*(data->bin + size) = '\0';
+	size = strlen(data.bin) - 2;
+	if(!strcmp(data.bin + size, "32") ) {
+		*(data.bin + size) = '\0';
 		newargv = build_new_argv(argv, "-m32");
-	} else if (!strcmp(data->bin + size, "64") ) {
-		*(data->bin + size) = '\0';
+	} else if (!strcmp(data.bin + size, "64") ) {
+		*(data.bin + size) = '\0';
 		newargv = build_new_argv(argv, "-m64");
 	} else if(getenv("ABI")) {
 		char envvar[50];
@@ -370,8 +367,8 @@ int main(int argc, char *argv[])
 	}
 
 	/* Ok, lets do it one more time ... */
-	if (execv(data->bin, newargv) < 0)
-		wrapper_exit("Could not run/locate \"%s\"\n", data->name);
+	if (execv(data.bin, newargv) < 0)
+		wrapper_exit("Could not run/locate \"%s\"\n", data.name);
 
 	return 0;
 }
