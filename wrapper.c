@@ -1,7 +1,7 @@
 /*
  * Copyright 1999-2005 Gentoo Foundation
  * Distributed under the terms of the GNU General Public License v2
- * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.4.8.c,v 1.1 2007/04/11 08:51:31 vapier Exp $
+ * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.5.0.c,v 1.1 2007/05/03 05:20:39 vapier Exp $
  * Author: Martin Schlemmer <azarah@gentoo.org>
  * az's lackey: Mike Frysinger <vapier@gentoo.org>
  */
@@ -145,37 +145,39 @@ static int find_target_in_envd(struct wrapper_data *data, int cross_compile)
 	if (envfile == NULL)
 		return 0;
 
-	while (0 != fgets(strp, MAXPATHLEN, envfile)) {
+	while (fgets(strp, MAXPATHLEN, envfile) != NULL) {
 		/* Keep reading ENVD_FILE until we get a line that
-		 * starts with 'PATH='
+		 * starts with 'GCC_PATH=' ... keep 'PATH=' around
+		 * for older gcc versions.
 		 */
-		if (((strp) && (strlen(strp) > strlen("PATH=")) &&
-		    !strncmp("PATH=", strp, strlen("PATH=")))) {
+		if (strncmp(strp, "GCC_PATH=", strlen("GCC_PATH=")) &&
+		    strncmp(strp, "PATH=", strlen("PATH=")))
+			continue;
 
-			token = strtok_r(strp, "=", &state);
-			if ((token != NULL) && strlen(token))
-				/* The second token should be the value of PATH .. */
-				token = strtok_r(NULL, "=", &state);
-			else
-				goto bail;
+		token = strtok_r(strp, "=", &state);
+		if ((token != NULL) && strlen(token))
+			/* The second token should be the value of PATH .. */
+			token = strtok_r(NULL, "=", &state);
+		else
+			goto bail;
 
-			if ((token != NULL) && strlen(token)) {
-				strp = token;
-				/* A bash variable may be unquoted, quoted with " or
-				 * quoted with ', so extract the value without those ..
-				 */
-				token = strtok(strp, "\n\"\'");
+		if ((token != NULL) && strlen(token)) {
+			strp = token;
+			/* A bash variable may be unquoted, quoted with " or
+			 * quoted with ', so extract the value without those ..
+			 */
+			token = strtok(strp, "\n\"\'");
 
-				while (token != NULL) {
-					if (check_for_target(token, data)) {
-						fclose(envfile);
-						return 1;
-					}
-
-					token = strtok(NULL, "\n\"\'");
+			while (token != NULL) {
+				if (check_for_target(token, data)) {
+					fclose(envfile);
+					return 1;
 				}
+
+				token = strtok(NULL, "\n\"\'");
 			}
 		}
+
 		strp = str;
 	}
 
@@ -338,7 +340,8 @@ int main(int argc, char *argv[])
 	data.path = NULL;
 
 	/* Set argv[0] to the correct binary, else gcc can't find internal headers
-	 * http://bugs.gentoo.org/show_bug.cgi?id=8132 */
+	 * http://bugs.gentoo.org/8132
+	 */
 	argv[0] = data.bin;
 
 	/* If this is g{cc,++}{32,64}, we need to add -m{32,64}
