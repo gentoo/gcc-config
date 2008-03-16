@@ -1,12 +1,11 @@
 /*
- * Copyright 1999-2007 Gentoo Foundation
+ * Copyright 1999-2008 Gentoo Foundation
  * Distributed under the terms of the GNU General Public License v2
- * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.5.0.c,v 1.4 2007/08/31 01:42:47 vapier Exp $
+ * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.5.1.c,v 1.1 2008/03/16 01:20:11 vapier Exp $
  * Author: Martin Schlemmer <azarah@gentoo.org>
  * az's lackey: Mike Frysinger <vapier@gentoo.org>
  */
 
-#define _REENTRANT
 #define _GNU_SOURCE
 
 #include <stdio.h>
@@ -25,14 +24,10 @@
 #define ENVD_BASE  "/etc/env.d/05gcc"
 
 struct wrapper_data {
-	char name[MAXPATHLEN + 1];
-	char fullname[MAXPATHLEN + 1];
-	char bin[MAXPATHLEN + 1];
-	char tmp[MAXPATHLEN + 1];
-	char *path;
+	char *name, *fullname, *bin, *path;
 };
 
-static struct {
+static const struct {
 	char *alias;
 	char *target;
 } wrapper_aliases[] = {
@@ -41,23 +36,29 @@ static struct {
 	{ NULL, NULL }
 };
 
-static const char *wrapper_strerror(int err, struct wrapper_data *data)
-{
-	/* this app doesn't use threads and strerror
-	 * is more portable than strerror_r */
-	strncpy(data->tmp, strerror(err), sizeof(data->tmp));
-	return data->tmp;
-}
-
-static void wrapper_exit(char *msg, ...)
+static void wrapper_err(char *msg, ...)
 {
 	va_list args;
 	fprintf(stderr, "gcc-config error: ");
 	va_start(args, msg);
 	vfprintf(stderr, msg, args);
 	va_end(args);
+	fprintf(stderr, "\n");
 	exit(1);
 }
+#define wrapper_errp(fmt, ...) wrapper_err(fmt ": %s", ## __VA_ARGS__, strerror(errno))
+
+#define xmemwrap(func, proto, use) \
+static void *x ## func proto \
+{ \
+	void *ret = func use; \
+	if (!ret) \
+		wrapper_err(#func "out of memory"); \
+	return ret; \
+}
+xmemwrap(malloc, (size_t size), (size))
+xmemwrap(calloc, (size_t nemb, size_t size), (nemb, size))
+xmemwrap(strdup, (const char *s), (s))
 
 /* check_for_target checks in path for the file we are seeking
  * it returns 1 if found (with data->bin setup), 0 if not and
@@ -66,50 +67,46 @@ static void wrapper_exit(char *msg, ...)
 static int check_for_target(char *path, struct wrapper_data *data)
 {
 	struct stat sbuf;
-	int result;
 	char str[MAXPATHLEN + 1];
 	size_t len = strlen(path) + strlen(data->name) + 2;
 
-	snprintf(str, len, "%s/%s", path, data->name);
+	snprintf(str, sizeof(str), "%s/%s", path, data->name);
 
 	/* Stat possible file to check that
 	 * 1) it exist and is a regular file, and
 	 * 2) it is not the wrapper itself, and
 	 * 3) it is in a /gcc-bin/ directory tree
 	 */
-	result = stat(str, &sbuf);
-	if ((result == 0) && \
-	    ((sbuf.st_mode & S_IFREG) || (sbuf.st_mode & S_IFLNK)) && \
-	    (strcmp(str, data->fullname) != 0) && \
-	    (strstr(str, "/gcc-bin/") != 0)) {
+	if (stat(str, &sbuf) == 0 &&
+	    (S_ISREG(sbuf.st_mode) || S_ISLNK(sbuf.st_mode)) &&
+	    (strcmp(str, data->fullname) != 0) &&
+	    (strstr(str, "/gcc-bin/") != 0))
+	{
+		data->bin = xstrdup(str);
+		return 1;
+	}
 
-		strncpy(data->bin, str, MAXPATHLEN);
-		data->bin[MAXPATHLEN] = 0;
-		result = 1;
-	} else
-		result = 0;
-
-	return result;
+	return 0;
 }
 
 static int find_target_in_path(struct wrapper_data *data)
 {
 	char *token = NULL, *state;
-	char str[MAXPATHLEN + 1];
+	char *str;
 
-	if (data->path == NULL) return 0;
+	if (data->path == NULL)
+		return 0;
 
 	/* Make a copy since strtok_r will modify path */
-	snprintf(str, MAXPATHLEN + 1, "%s", data->path);
-
-	token = strtok_r(str, ":", &state);
+	str = xstrdup(data->path);
 
 	/* Find the first file with suitable name in PATH.  The idea here is
 	 * that we do not want to bind ourselfs to something static like the
 	 * default profile, or some odd environment variable, but want to be
 	 * able to build something with a non default gcc by just tweaking
 	 * the PATH ... */
-	while ((token != NULL) && strlen(token)) {
+	token = strtok_r(str, ":", &state);
+	while (token != NULL) {
 		if (check_for_target(token, data))
 			return 1;
 		token = strtok_r(NULL, ":", &state);
@@ -139,7 +136,7 @@ static int find_target_in_envd(struct wrapper_data *data, int cross_compile)
 		char *ctarget, *end = strrchr(data->name, '-');
 		if (end == NULL)
 			return 0;
-		ctarget = strdup(data->name);
+		ctarget = xstrdup(data->name);
 		ctarget[end - data->name] = '\0';
 		snprintf(envd_file, MAXPATHLEN, "%s-%s", ENVD_BASE, ctarget);
 		free(ctarget);
@@ -192,33 +189,30 @@ static int find_target_in_envd(struct wrapper_data *data, int cross_compile)
 
 static void find_wrapper_target(struct wrapper_data *data)
 {
-	FILE *inpipe = NULL;
-	char str[MAXPATHLEN + 1];
-
 	if (find_target_in_path(data))
 		return;
 
 	if (find_target_in_envd(data, 0))
 		return;
 
-	/* Only our wrapper is in PATH, so
-	   get the CC path using gcc-config and
-	   execute the real binary in there... */
-	inpipe = popen(GCC_CONFIG " --get-bin-path", "r");
+	/* Only our wrapper is in PATH, so get the CC path using
+	 * gcc-config and execute the real binary in there ...
+	 */
+	FILE *inpipe = popen(GCC_CONFIG " --get-bin-path", "r");
 	if (inpipe == NULL)
-		wrapper_exit(
-			"Could not open pipe: %s\n",
-			wrapper_strerror(errno, data));
+		wrapper_errp("could not open pipe");
 
+	char str[MAXPATHLEN + 1];
 	if (fgets(str, MAXPATHLEN, inpipe) == 0)
-		wrapper_exit(
-			"Could not get compiler binary path: %s\n",
-			wrapper_strerror(errno, data));
+		wrapper_errp("could not get compiler binary path");
 
-	strncpy(data->bin, str, sizeof(data->bin) - 1);
-	data->bin[strlen(data->bin) - 1] = '/';
-	strncat(data->bin, data->name, sizeof(data->bin) - 1);
-	data->bin[MAXPATHLEN] = 0;
+	/* chomp! */
+	size_t plen = strlen(str);
+	if (str[plen-1] == '\n')
+		str[plen-1] = '\0';
+
+	data->bin = xmalloc(strlen(str) + 1 + strlen(data->name) + 1);
+	sprintf(data->bin, "%s/%s", str, data->name);
 
 	pclose(inpipe);
 }
@@ -248,16 +242,13 @@ static void modify_path(struct wrapper_data *data)
 	token = strtok_r(str, ":", &state);
 
 	/* Check if we already appended our bin location to PATH */
-	if ((token != NULL) && strlen(token)) {
+	if ((token != NULL) && strlen(token))
 		if (!strcmp(token, dname))
 			return;
-	}
 
 	len = strlen(dname) + strlen(data->path) + 2 + strlen("PATH") + 1;
 
-	newpath = (char *)malloc(len);
-	if (newpath == NULL)
-		wrapper_exit("out of memory\n");
+	newpath = xmalloc(len);
 	memset(newpath, 0, len);
 
 	snprintf(newpath, len, "PATH=%s:%s", dname, data->path);
@@ -288,16 +279,14 @@ static char **build_new_argv(char **argv, const char *newflags_str)
 				return retargv;
 
 	/* Tokenize the flag list and put it into newflags array */
-	flags_tokenized = strdup(newflags_str);
-	if (flags_tokenized == NULL)
-		return retargv;
+	flags_tokenized = xstrdup(newflags_str);
 	i = 0;
 	newflags[i] = strtok_r(flags_tokenized, " \t\n", &state);
 	while (newflags[i] != NULL && i < MAX_NEWFLAGS-1)
 		newflags[++i] = strtok_r(NULL, " \t\n", &state);
 
 	/* allocate memory for our spiffy new argv */
-	retargv = (char**)calloc(argc + i + 1, sizeof(char*));
+	retargv = xcalloc(argc + i + 1, sizeof(char*));
 	/* start building retargv */
 	retargv[0] = argv[0];
 	/* insert the ABI flags first so cmdline always overrides ABI flags */
@@ -312,38 +301,30 @@ static char **build_new_argv(char **argv, const char *newflags_str)
 int main(int argc, char *argv[])
 {
 	struct wrapper_data data;
-	size_t size;
-	int i;
-	char **newargv = argv;
 
 	memset(&data, 0, sizeof(data));
 
-	if (getenv("PATH")) {
-		data.path = strdup(getenv("PATH"));
-		if (data.path == NULL)
-			wrapper_exit("%s wrapper: out of memory\n", argv[0]);
-	}
+	if (getenv("PATH"))
+		data.path = xstrdup(getenv("PATH"));
 
 	/* What should we find ? */
-	strcpy(data.name, basename(argv[0]));
+	data.name = basename(xstrdup(argv[0]));
 
 	/* Allow for common compiler names like cc->gcc */
+	size_t i;
 	for (i = 0; wrapper_aliases[i].alias; ++i)
 		if (!strcmp(data.name, wrapper_aliases[i].alias))
-			strcpy(data.name, wrapper_aliases[i].target);
+			data.name = wrapper_aliases[i].target;
 
 	/* What is the full name of our wrapper? */
-	size = sizeof(data.fullname);
-	i = snprintf(data.fullname, size, "/usr/bin/%s", data.name);
-	if ((i == -1) || (i > (int)size))
-		wrapper_exit("invalid wrapper name: \"%s\"\n", data.name);
+	data.fullname = xmalloc(strlen(data.name) + sizeof("/usr/bin/") + 1);
+	sprintf(data.fullname, "/usr/bin/%s", data.name);
 
 	find_wrapper_target(&data);
 
 	modify_path(&data);
 
-	if (data.path)
-		free(data.path);
+	free(data.path);
 	data.path = NULL;
 
 	/* Set argv[0] to the correct binary, else gcc can't find internal headers
@@ -352,24 +333,25 @@ int main(int argc, char *argv[])
 	argv[0] = data.bin;
 
 	/* If $ABI is in env, add appropriate env flags */
+	char **newargv = argv;
 	if (getenv("ABI")) {
 		char envvar[50];
 
-		/* We use CFLAGS_${ABI} for gcc, g++, g77, etc as they are
-		 * the same no matter which compiler we are using.
+		/* We use CFLAGS_${ABI} for gcc, g++, g77, etc as the flags that would
+		 * be in there are the same no matter which compiler we are using.
 		 */
 		snprintf(envvar, sizeof(envvar), "CFLAGS_%s", getenv("ABI"));
+		envvar[sizeof(envvar)-1] = '\0';
 
-		if (getenv(envvar)) {
+		if (getenv(envvar))
 			newargv = build_new_argv(argv, getenv(envvar));
-			if (!newargv)
-				wrapper_exit("%s wrapper: out of memory\n", argv[0]);
-		}
 	}
 
 	/* Ok, lets do it one more time ... */
-	if (execv(data.bin, newargv) < 0)
-		wrapper_exit("Could not run/locate \"%s\"\n", data.name);
+	execv(data.bin, newargv);
+
+	/* shouldn't have made it here if things worked ... */
+	wrapper_err("could not run/locate '%s'", data.name);
 
 	return 123;
 }

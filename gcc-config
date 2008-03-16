@@ -1,7 +1,7 @@
 #!/bin/bash
-# Copyright 1999-2007 Gentoo Foundation
+# Copyright 1999-2008 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.4.0,v 1.24 2007/12/27 19:01:06 vapier Exp $
+# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.4.1,v 1.7 2008/03/16 01:20:11 vapier Exp $
 
 trap ":" INT QUIT TSTP
 
@@ -25,6 +25,7 @@ Usage: gcc-config [options] [CC Profile]
 Change the current cc/gcc profile, or give info about profiles.
 
 Options:
+  -C, --nocolor              Disable color output
   -O, --use-old              Use the old profile if one was selected.
   -f, --force                Make sure all config files are regenerated.
   -P, --use-portage-chost    Only set to given profile if its CHOST is the
@@ -661,6 +662,9 @@ for x in "$@" ; do
 			;;
 		-x|--debug)
 			SET_X=true
+			;;
+		-C|--nocolor)
+			# nothing to do; functions.sh parsed this for us
 			;;
 		-h|--help)
 			usage 0
