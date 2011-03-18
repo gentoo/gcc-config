@@ -1,7 +1,7 @@
 /*
- * Copyright 1999-2008 Gentoo Foundation
+ * Copyright 1999-2011 Gentoo Foundation
  * Distributed under the terms of the GNU General Public License v2
- * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.5.1.c,v 1.2 2009/01/02 00:43:32 vapier Exp $
+ * $Header: gentoo-x86/sys-devel/gcc-config/files/wrapper-1.5.2.c,v 1.1 2011/03/18 19:47:37 vapier Exp $
  * Author: Martin Schlemmer <azarah@gentoo.org>
  * az's lackey: Mike Frysinger <vapier@gentoo.org>
  */
@@ -62,7 +62,6 @@ static void *x ## func proto \
 	return ret; \
 }
 xmemwrap(malloc, (size_t size), (size))
-xmemwrap(calloc, (size_t nemb, size_t size), (nemb, size))
 xmemwrap(strdup, (const char *s), (s))
 
 /* check_for_target checks in path for the file we are seeking
@@ -105,7 +104,7 @@ static int check_for_target(char *path, struct wrapper_data *data)
 
 static int find_target_in_path(struct wrapper_data *data)
 {
-	char *token = NULL, *state;
+	char *token = NULL, *state = NULL;
 	char *str;
 
 	if (data->path == NULL)
@@ -270,49 +269,6 @@ static void modify_path(struct wrapper_data *data)
 	putenv(newpath);
 }
 
-static char *abi_flags[] = {
-	"-m32", "-m64", "-mabi",
-};
-static char **build_new_argv(char **argv, const char *newflags_str)
-{
-#define MAX_NEWFLAGS 32
-	char *newflags[MAX_NEWFLAGS];
-	char **retargv;
-	unsigned int argc, i;
-	char *state, *flags_tokenized;
-
-	retargv = argv;
-
-	/* make sure user hasn't specified any ABI flags already ...
-	 * if they have, lets just get out of here ... this of course
-	 * is by no means complete, it's merely a hack that works most
-	 * of the time ...
-	 */
-	for (argc = 0; argv[argc]; ++argc)
-		for (i = 0; i < ARRAY_SIZE(abi_flags); ++i)
-			if (!strncmp(argv[argc], abi_flags[i], strlen(abi_flags[i])))
-				return retargv;
-
-	/* Tokenize the flag list and put it into newflags array */
-	flags_tokenized = xstrdup(newflags_str);
-	i = 0;
-	newflags[i] = strtok_r(flags_tokenized, " \t\n", &state);
-	while (newflags[i] != NULL && i < MAX_NEWFLAGS-1)
-		newflags[++i] = strtok_r(NULL, " \t\n", &state);
-
-	/* allocate memory for our spiffy new argv */
-	retargv = xcalloc(argc + i + 1, sizeof(char*));
-	/* start building retargv */
-	retargv[0] = argv[0];
-	/* insert the ABI flags first so cmdline always overrides ABI flags */
-	memcpy(retargv+1, newflags, i * sizeof(char*));
-	/* copy over the old argv */
-	if (argc > 1)
-		memcpy(retargv+1+i, argv+1, (argc-1) * sizeof(char*));
-
-	return retargv;
-}
-
 int main(int argc, char *argv[])
 {
 	struct wrapper_data data;
@@ -347,23 +303,8 @@ int main(int argc, char *argv[])
 	 */
 	argv[0] = data.bin;
 
-	/* If $ABI is in env, add appropriate env flags */
-	char **newargv = argv;
-	if (getenv("ABI")) {
-		char envvar[50];
-
-		/* We use CFLAGS_${ABI} for gcc, g++, g77, etc as the flags that would
-		 * be in there are the same no matter which compiler we are using.
-		 */
-		snprintf(envvar, sizeof(envvar), "CFLAGS_%s", getenv("ABI"));
-		envvar[sizeof(envvar)-1] = '\0';
-
-		if (getenv(envvar))
-			newargv = build_new_argv(argv, getenv(envvar));
-	}
-
 	/* Ok, lets do it one more time ... */
-	execv(data.bin, newargv);
+	execv(data.bin, argv);
 
 	/* shouldn't have made it here if things worked ... */
 	wrapper_err("could not run/locate '%s'", data.name);
