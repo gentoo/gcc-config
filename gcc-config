@@ -1,7 +1,7 @@
 #!/bin/bash
-# Copyright 1999-2011 Gentoo Foundation
+# Copyright 1999-2012 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.5,v 1.7 2011/12/07 05:42:19 vapier Exp $
+# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.5.1,v 1.1 2012/02/29 20:16:56 vapier Exp $
 
 # Format of /etc/env.d/gcc/:
 #  config-TARGET:	CURRENT=version for TARGET
@@ -74,7 +74,7 @@ USAGE_END
 # Usage: source_var <var> <file> [default value]
 source_var() {
 	unset $1
-	local val=$(source "$2"; echo ${!1})
+	local val=$(source "$2"; echo "${!1}")
 	: ${val:=$3}
 	eval $1=\"${val}\"
 }
@@ -237,7 +237,6 @@ mv_if_diff() {
 }
 
 switch_profile() {
-	local MY_LDPATH=
 	local GCC_PROFILES=
 	local OLD_CC_COMP=
 	local GCC_PATH=
@@ -272,16 +271,19 @@ switch_profile() {
 	EOF
 	echo "CURRENT=${CC_COMP}" > "${GCC_ENV_D}/config-${CTARGET}"
 	if ! is_cross_compiler ; then
-		# Order our profiles to have the default first ...
-		# We do this so that we can have them ordered with default
-		# first in /etc/ld.so.conf, as the logical is that all
-		# compilers for default CHOST will be used to compile stuff,
-		# and thus we want all their lib paths in /etc/ld.so.conf ...
+		# Regardless of the profile selected, keep the runtime lookup
+		# paths stable.  Otherwise, all the apps that were built with
+		# a new compiler will start trying to use older versions of
+		# the libs, and life gets sad.  We work off the assumption
+		# that every shared library gcc ships is ABI compatible (as
+		# is the point of SONAMEs).  We don't have to worry about
+		# static libraries here as gcc itself will take care of
+		# linking against its own internal paths first. #297685
+		local MY_LDPATH
 		get_real_chost
 		MY_LDPATH=$(${SED} -n \
 			-e '/^LDPATH=/{s|LDPATH=||;s|"||g;s|:|\n|g;p}' \
-			"${GCC_ENV_D}"/${REAL_CHOST}-* \
-			"${GCC_ENV_D}"/${CC_COMP} | tac
+			"${GCC_ENV_D}"/${REAL_CHOST}-* | tac
 		)
 
 		# Pass all by default
@@ -302,7 +304,6 @@ switch_profile() {
 		# Help out the gcc wrapper
 		ln -sf ${CC_COMP} "${GCC_ENV_D}/.NATIVE"
 
-
 		# Relocate random crap
 		if [[ -e ${ROOT}/usr/${GENTOO_LIBDIR}/pkgconfig/libgcj-${CC_COMP_VERSION}.pc ]] ; then
 			local mver=${CC_COMP_VERSION:0:3}
@@ -320,34 +321,50 @@ switch_profile() {
 		#
 		# The funky move magic is required for proper updating of in-use files.
 		#
-		# Need to cut out extra paths in multilib case and pray the first path
-		# is the "root" multilib path ... maybe some day change this to use
-		# `gcc -print-file-name` ...
-		LDPATH=${LDPATH%%:*}
-		for multilib in $("${ROOT}/${GCC_PATH}"/gcc -print-multi-lib); do
-			multiarg=${multilib#*;}
+		# XXX: This fails when configuring the native target in a cross-compiled
+		#      ROOT.  Only way around that is to store the multilib configuration
+		#      in the gcc profile when we compiled it and then read that instead
+		#      of executing the gcc.  Some day.
+		#
+		# We use the same ordering logic as mentioned in the MY_LDPATH setup.
+		# We get the libs from the latest version available.
+		local LATEST_GCC_PATH gcc LATEST_GCC_LDPATH
+
+		LATEST_GCC_PATH=$(gawk -F= '
+				$1 == "GCC_PATH" {
+					p = gensub("\"","","g",$2)
+				}
+				END { print p }
+			' "${GCC_ENV_D}"/${REAL_CHOST}-*
+		)
+		gcc="${ROOT}${LATEST_GCC_PATH}/gcc"
+
+		local multilib
+		for multilib in $("${gcc}" -print-multi-lib); do
+			local multiarg=${multilib#*;}
 			multiarg=${multiarg/@/-}
-			multilibdir=${multilib%;*}
-			libdir="lib/"$("${ROOT}/${GCC_PATH}"/gcc ${multiarg} -print-multi-os-directory)
-			if mkdir -p "${ROOT}/${libdir}"/.gcc.config.new ; then
-				for gcclib in gcc_s unwind ; do
-					if [[ -n $(ls "${ROOT}/${LDPATH}/${multilibdir}"/lib${gcclib}.so.* 2>/dev/null) ]]; then
-						cp -pP "${ROOT}/${LDPATH}/${multilibdir}"/lib${gcclib}.so.* "${ROOT}/${libdir}"/.gcc.config.new/
-						# no need to sanity remove this as the `mv` should take
-						# care of it.  we also need this step to be completly atomic
-						# for systems that have even `mv` linked against libgcc_s.so.
-						# http://bugs.gentoo.org/150257
-						#rm -f "${ROOT}/${libdir}"/lib${gcclib}.so*
-						mv -f "${ROOT}/${libdir}"/.gcc.config.new/* "${ROOT}/${libdir}"/
-					fi
-				done
-				rmdir "${ROOT}/${libdir}"/.gcc.config.new
-			fi
+			local multilibdir=${multilib%;*}
+			local libdir="${ROOT}lib/"$("${gcc}" ${multiarg} -print-multi-os-directory)
+
+			mkdir -p "${libdir}"/.gcc.config.new || continue # !?!?!
+
+			local gcclib
+			for gcclib in gcc_s unwind ; do
+				# This assumes that we always have the .so symlink,
+				# but for now, that should be safe ...
+				gcclib=$("${gcc}" -print-file-name="lib${gcclib}.so")
+				if [[ ${gcclib} == */* ]] ; then
+					cp -pP "${ROOT}${gcclib}".* "${libdir}"/.gcc.config.new/
+					# no need to sanity remove this as the `mv` should take
+					# care of it.  we also need this step to be completly atomic
+					# for systems that have even `mv` linked against libgcc_s.so.
+					# http://bugs.gentoo.org/150257
+					#rm -f "${libdir}"/lib${gcclib}.so*
+					mv -f "${libdir}"/.gcc.config.new/* "${libdir}"/
+				fi
+			done
+			rmdir "${libdir}"/.gcc.config.new
 		done
-		unset multilib
-		unset multilibdir
-		unset multiarg
-		unset libdir
 	fi
 	mv_if_diff "${envd}.tmp" "${envd}"
 	local envd_changed=$?
@@ -465,12 +482,7 @@ list_profiles() {
 }
 
 print_environ() {
-	local GCC_PATH=
-	local ENV_CMD=
-	local SET_ELEMENT=
-
-	source_var GCC_PATH "${GCC_ENV_D}/${CC_COMP}" "${PATH}"
-
+	local ENV_CMD SET_ELEMENT
 	case ${SHELL} in
 		*/csh|*/tcsh)
 			ENV_CMD="setenv"
@@ -482,8 +494,14 @@ print_environ() {
 			;;
 	esac
 
+	local var
+	for var in GCC_SPECS GCC_PATH ; do
+		local ${var}
+		source_var ${var} "${GCC_ENV_D}/${CC_COMP}"
+	done
+
 	(
-	PATH=${GCC_PATH}:${PATH}
+	[[ -n ${GCC_PATH} ]] && PATH=${GCC_PATH}:${PATH}
 	for var in PATH GCC_SPECS ; do
 		echo "${ENV_CMD} ${var}${SET_ELEMENT}\"${!var}\""
 	done
@@ -547,9 +565,9 @@ split_gcc_ver() {
 	}'
 }
 chop_gcc_ver_spec() {
-	local splitTED=$(split_gcc_ver $@) # target ver spec
-	splitTED=${splitTED#* }            # ver spec
-	echo ${splitTED/ /-}               # ver-spec
+	local splitTED=$(split_gcc_ver "$@") # target ver spec
+	splitTED=${splitTED#* }              # ver spec
+	echo ${splitTED/ /-}                 # ver-spec
 }
 
 SET_X=false
@@ -630,12 +648,12 @@ for x in "$@" ; do
 			;;
 		-V|--version)
 			unset RCSfile Revision Date
-			rcsfile="$RCSfile: gcc-config-1.5,v $"
+			rcsfile="$RCSfile: gcc-config-1.5.1,v $"
 			rcsfile=${rcsfile#: }
 			rcsfile=${rcsfile%,v*}
-			cvsrev="$Revision: 1.7 $"
+			cvsrev="$Revision: 1.1 $"
 			cvsrev=${cvsrev#: }
-			cvsdate="$Date: 2011/12/07 05:42:19 $"
+			cvsdate="$Date: 2012/02/29 20:16:56 $"
 			cvsdate=${cvsdate#: }
 			echo "${rcsfile} (r${cvsrev% *} @ ${cvsdate% *})"
 			exit 0
@@ -706,12 +724,13 @@ if [[ -z ${CC_COMP} ]] ; then
 fi
 
 if [[ ${DOIT} != "get_current_profile" ]] ; then
-	GCC_LIB=$(
-		show_var LDPATH "${GCC_ENV_D}/${CC_COMP}" | \
-			awk -F/ '{ print  "/"$2"/"$3"/"$4"/" }'
-	)
+	GCC_LIB=$(get_lib_path | awk -F/ '{ print  "/"$2"/"$3"/"$4"/" }')
 
-	CC_COMP_VERSION=$(chop_gcc_ver_spec ${CC_COMP})
+	# For people who insist on using funky version strings ("4.6.x"
+	# rather than "4.6.2"), allow them to manually specify it.
+	source_var GCC_VER "${GCC_ENV_D}/${CC_COMP}"
+
+	CC_COMP_VERSION=${GCC_VER:-$(chop_gcc_ver_spec ${CC_COMP})}
 	CC_COMP_TARGET=${CC_COMP%-${CC_COMP_VERSION}*}
 
 	if [[ ! -d ${ROOT}/${GCC_LIB}/${CC_COMP_TARGET}/${CC_COMP_VERSION} ]]; then
