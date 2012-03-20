@@ -1,7 +1,6 @@
 #!/bin/bash
 # Copyright 1999-2012 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Header: gentoo-x86/sys-devel/gcc-config/files/gcc-config-1.5.1,v 1.2 2012/03/15 01:16:44 vapier Exp $
 
 # Format of /etc/env.d/gcc/:
 #  config-TARGET:	CURRENT=version for TARGET
@@ -39,6 +38,8 @@ if ! type -P tac >/dev/null ; then
 	tac() { ${SED} -e '1!G;h;$!d' "$@" ; }
 fi
 
+PV="@PV@"
+[[ ${PV} == @*@ ]] && PV="git"
 GENTOO_LIBDIR="@GENTOO_LIBDIR@"
 [[ ${GENTOO_LIBDIR} == @*@ ]] && GENTOO_LIBDIR="lib"
 
@@ -647,15 +648,7 @@ for x in "$@" ; do
 			usage 0
 			;;
 		-V|--version)
-			unset RCSfile Revision Date
-			rcsfile="$RCSfile: gcc-config-1.5.1,v $"
-			rcsfile=${rcsfile#: }
-			rcsfile=${rcsfile%,v*}
-			cvsrev="$Revision: 1.2 $"
-			cvsrev=${cvsrev#: }
-			cvsdate="$Date: 2012/03/15 01:16:44 $"
-			cvsdate=${cvsdate#: }
-			echo "${rcsfile} (r${cvsrev% *} @ ${cvsdate% *})"
+			echo "${argv0}: @PV@"
 			exit 0
 			;;
 		-*)
