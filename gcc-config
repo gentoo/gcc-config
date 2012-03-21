@@ -460,6 +460,14 @@ list_profiles() {
 		[[ ${x} == */config* ]] && continue
 
 		source_var CTARGET "${x}"
+		# Older native profiles would not set CTARGET.
+		if [[ -z ${CTARGET} ]] ; then
+			if [[ ${x} == */${REAL_CHOST}-* ]] ; then
+				CTARGET=${REAL_CHOST}
+			else
+				ewarn "broken config file: ${x}"
+			fi
+		fi
 
 		((++i))
 
