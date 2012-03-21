@@ -294,7 +294,7 @@ switch_profile() {
 		# Punt old files; maybe globs too much, but oh well
 		rm -f \
 			"${GCC_ENV_D}/NATIVE" "${GCC_ENV_D}/.NATIVE" \
-			"${ENV_D}/05gcc" "${GCC_ENV_D}/config" \
+			"${ENV_D}/05gcc" \
 			"${ENV_D}/05gcc-${CTARGET}"-* "${GCC_ENV_D}/config-${CTARGET}"-*
 
 		# Help out the gcc wrapper
@@ -403,9 +403,7 @@ switch_profile() {
 
 get_current_profile() {
 	local conf="${GCC_ENV_D}/config-${CTARGET}"
-	if [[ ! -f ${conf} ]] ; then
-		conf="${GCC_ENV_D}/config" # old name
-	elif [[ -n ${CC_COMP} ]] && is_cross_compiler ; then
+	if [[ -f ${conf} ]] && [[ -n ${CC_COMP} ]] && is_cross_compiler ; then
 		conf="${conf}-${CC_COMP}"
 	fi
 
@@ -438,13 +436,9 @@ list_profiles() {
 	fi
 
 	if [[ ! -f ${GCC_ENV_D}/config-${CTARGET} ]] ; then
-		if ! is_cross_compiler && [[ -e ${GCC_ENV_D}/config ]] ; then
-			[[ -w ${GCC_ENV_D}/config ]] && mv ${GCC_ENV_D}/config ${GCC_ENV_D}/config-${CTARGET}
-		else
-			# get_current_profile already warns
-			#eerror "${argv0}: No gcc profile is active; please select one!"
-			filter=${CTARGET}
-		fi
+		# get_current_profile already warns
+		#eerror "${argv0}: No gcc profile is active; please select one!"
+		filter=${CTARGET}
 	fi
 
 	source_var CURRENT "${GCC_ENV_D}"/config-${CTARGET}
@@ -705,6 +699,20 @@ get_chost
 [[ ${DOIT} == "get_current_profile" ]] \
 	&& : ${CTARGET:=${CC_COMP:-${CHOST}}} \
 	|| : ${CTARGET:=${CHOST}}
+
+# Do migration of old files
+if [[ -e ${GCC_ENV_D}/config ]] ; then
+	(
+	unset CURRENT
+	. "${GCC_ENV_D}"/config
+	if [[ ${CURRENT} == ${CTARGET}-* ]] ; then
+		mv "${GCC_ENV_D}"/config "${GCC_ENV_D}"/config-${CTARGET} || exit 1
+	else
+		# who knows; force a refresh by punting it
+		rm -f "${GCC_ENV_D}"/config || exit 1
+	fi
+	) || die "could not get rid of old ${GCC_ENV_D}/config"
+fi
 
 if [[ -z ${CC_COMP} ]] ; then
 	CC_COMP=$(get_current_profile)
