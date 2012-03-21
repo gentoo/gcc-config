@@ -20,12 +20,8 @@ source /etc/init.d/functions.sh || {
 	exit 1
 }
 esyslog() { :; }
+die() { eerror "${argv0}: $*"; exit 1; }
 umask 022
-
-die_eerror() {
-	eerror "${argv0}: $*"
-	exit 1
-}
 
 # *BSD are plain stupid ... copy a GNU extension but don't just copy it,
 # change it so it works differently.  Wish Darwin did selective evolution
@@ -237,7 +233,7 @@ switch_profile() {
 	local OLD_CC_COMP=
 	local GCC_PATH=
 
-	[[ $(id -u) != "0" ]] && die_eerror "Must be root"
+	[[ $(id -u) != "0" ]] && die "Must be root"
 
 	if is_cross_compiler ; then
 		ebegin "Switching cross-compiler to ${CC_COMP}"
@@ -569,7 +565,7 @@ chop_gcc_ver_spec() {
 }
 
 set_doit() {
-	[[ -n ${DOIT} ]] && die_eerror "too many actions selected!"
+	[[ -n ${DOIT} ]] && die "too many actions selected!"
 	DOIT=$1
 }
 DOIT=""
@@ -587,7 +583,7 @@ for x in "$@" ; do
 			if get_current_profile &>/dev/null ; then
 				CC_COMP=$(get_current_profile)
 			else
-				die_eerror "No profile selected, unable to utilize --use-old"
+				die "No profile selected, unable to utilize --use-old"
 			fi
 			;;
 		-f|--force)
@@ -632,11 +628,11 @@ for x in "$@" ; do
 			exit 0
 			;;
 		-*)
-			die_eerror "Invalid switch!  Run ${argv0} without parameters for help."
+			die "Invalid switch!  Run ${argv0} without parameters for help."
 			;;
 		*)
 			if [[ -n ${CC_COMP} ]] ; then
-				die_eerror "Too many arguments!  Run ${argv0} without parameters for help."
+				die "Too many arguments!  Run ${argv0} without parameters for help."
 			fi
 
 			if [[ -z $(echo ${x} | tr -d '[:digit:]') ]] ; then
@@ -653,7 +649,7 @@ for x in "$@" ; do
 					((++i))
 				done
 				if [[ -z ${CC_COMP} ]] ; then
-					die_eerror "Could not locate profile #$x !"
+					die "Could not locate profile #$x !"
 				fi
 			else
 				# User gave us a full HOST-gccver
@@ -666,7 +662,7 @@ for x in "$@" ; do
 					if [[ -f ${GCC_ENV_D}/${CHOST}-${x} ]] ; then
 						x=${CHOST}-${x}
 					else
-						die_eerror "Could not locate '$x' in '${GCC_ENV_D}/' !"
+						die "Could not locate '$x' in '${GCC_ENV_D}/' !"
 					fi
 				fi
 				CC_COMP=${x}
