@@ -568,8 +568,11 @@ chop_gcc_ver_spec() {
 	echo ${splitTED/ /-}                 # ver-spec
 }
 
-NEED_ACTION="yes"
-DOIT="switch_profile"
+set_doit() {
+	[[ -n ${DOIT} ]] && die_eerror "too many actions selected!"
+	DOIT=$1
+}
+DOIT=""
 FORCE="no"
 
 CC_COMP=
@@ -591,16 +594,10 @@ for x in "$@" ; do
 			FORCE="yes"
 			;;
 		-c|--get-current-profile)
-			if [[ ${NEED_ACTION} == "yes" ]] ; then
-				NEED_ACTION="no"
-				DOIT="get_current_profile"
-			fi
+			set_doit get_current_profile
 			;;
 		-l|--list-profiles)
-			if [[ ${NEED_ACTION} == "yes" ]] ; then
-				NEED_ACTION="no"
-				DOIT="list_profiles"
-			fi
+			set_doit list_profiles
 			;;
 		-S|--split-profile)
 			if [[ ( $1 != "-S" && $1 != "--split-profile" ) || $# -eq 1 ]] ; then
@@ -613,22 +610,13 @@ for x in "$@" ; do
 			exit 0
 			;;
 		-E|--print-environ)
-			if [[ ${NEED_ACTION} == "yes" ]] ; then
-				NEED_ACTION="no"
-				DOIT="print_environ"
-			fi
+			set_doit print_environ
 			;;
 		-B|--get-bin-path)
-			if [[ ${NEED_ACTION} == "yes" ]] ; then
-				NEED_ACTION="no"
-				DOIT="get_bin_path"
-			fi
+			set_doit get_bin_path
 			;;
 		-L|--get-lib-path)
-			if [[ ${NEED_ACTION} == "yes" ]] ; then
-				NEED_ACTION="no"
-				DOIT="get_lib_path"
-			fi
+			set_doit get_lib_path
 			;;
 		-x|--debug)
 			set -x
@@ -687,9 +675,8 @@ for x in "$@" ; do
 	esac
 done
 
-if [[ ${DOIT} == "switch_profile" ]] && [[ -z ${CC_COMP} ]] ; then
-	usage 1
-fi
+[[ -z ${DOIT}${CC_COMP} ]] && usage 1
+: ${DOIT:="switch_profile"}
 
 get_chost
 [[ ${DOIT} == "get_current_profile" ]] \
