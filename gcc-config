@@ -118,24 +118,22 @@ try_real_hard_to_find_CHOST() {
 	fi
 }
 
-get_real_chost() {
-	[[ -n ${REAL_CHOST} ]] && return 0
+get_chost() {
+	# If it's set in the env, trust the setting.  If it's wrong,
+	# then that's the caller's problem.
+	[[ -n ${CHOST} ]] && return 0
 
-	# shortcut for switching compilers in a cross chroot
-	if [[ -n ${CHOST} && ${ROOT} != "/" ]] ; then
-		REAL_CHOST=${CHOST}
-		return 0
-	fi
+	export CHOST
 
 	# make sure portage isnt broken
 	if python -V &>/dev/null ; then
-		export REAL_CHOST=$(env -i portageq envvar CHOST 2>/dev/null)
+		CHOST=$(portageq envvar CHOST 2>/dev/null)
 	else
 		ewarn "Python seems to be broken, attempting to locate CHOST ourselves ..."
-		export REAL_CHOST=$(try_real_hard_to_find_CHOST)
+		CHOST=$(try_real_hard_to_find_CHOST)
 	fi
 
-	if [[ -z ${REAL_CHOST} ]] ; then
+	if [[ -z ${CHOST} ]] ; then
 		eerror "${argv0}: Could not get portage CHOST!"
 		eerror "${argv0}: You should verify that CHOST is set in one of these places:"
 		eerror "${argv0}:  - ${ROOT}/etc/portage/make.conf"
@@ -145,8 +143,8 @@ get_real_chost() {
 }
 
 is_cross_compiler() {
-	get_real_chost
-	[[ ${CC_COMP/${REAL_CHOST}} == ${CC_COMP} ]]
+	get_chost
+	[[ ${CC_COMP/${CHOST}} == ${CC_COMP} ]]
 }
 
 convert_profile_paths() {
@@ -278,10 +276,10 @@ switch_profile() {
 		# static libraries here as gcc itself will take care of
 		# linking against its own internal paths first. #297685
 		local MY_LDPATH
-		get_real_chost
+		get_chost
 		MY_LDPATH=$(${SED} -n \
 			-e '/^LDPATH=/{s|LDPATH=||;s|"||g;s|:|\n|g;p}' \
-			"${GCC_ENV_D}"/${REAL_CHOST}-* | tac
+			"${GCC_ENV_D}"/${CHOST}-* | tac
 		)
 
 		# Pass all by default
@@ -333,7 +331,7 @@ switch_profile() {
 					p = gensub("\"","","g",$2)
 				}
 				END { print p }
-			' "${GCC_ENV_D}"/${REAL_CHOST}-*
+			' "${GCC_ENV_D}"/${CHOST}-*
 		)
 		gcc="${ROOT}${LATEST_GCC_PATH}/gcc"
 
@@ -459,8 +457,8 @@ list_profiles() {
 		source_var CTARGET "${x}"
 		# Older native profiles would not set CTARGET.
 		if [[ -z ${CTARGET} ]] ; then
-			if [[ ${x} == */${REAL_CHOST}-* ]] ; then
-				CTARGET=${REAL_CHOST}
+			if [[ ${x} == */${CHOST}-* ]] ; then
+				CTARGET=${CHOST}
 			else
 				ewarn "broken config file: ${x}"
 			fi
@@ -681,9 +679,9 @@ for x in "$@" ; do
 					   [[ ${DOIT} != "get_current_profile" && ! -f ${GCC_ENV_D}/${x} ]]
 					then
 						# Maybe they just gave us a gccver ...
-						get_real_chost
-						if [[ -f ${GCC_ENV_D}/${REAL_CHOST}-${x} ]] ; then
-							x=${REAL_CHOST}-${x}
+						get_chost
+						if [[ -f ${GCC_ENV_D}/${CHOST}-${x} ]] ; then
+							x=${CHOST}-${x}
 						else
 							die_eerror "Could not locate '$x' in '${GCC_ENV_D}/' !"
 						fi
@@ -703,10 +701,10 @@ if [[ ${DOIT} == "switch_profile" ]] && [[ -z ${CC_COMP} ]] ; then
 	usage 1
 fi
 
-get_real_chost
+get_chost
 [[ ${DOIT} == "get_current_profile" ]] \
-	&& : ${CTARGET:=${CC_COMP:-${REAL_CHOST}}} \
-	|| : ${CTARGET:=${REAL_CHOST}}
+	&& : ${CTARGET:=${CC_COMP:-${CHOST}}} \
+	|| : ${CTARGET:=${CHOST}}
 
 if [[ -z ${CC_COMP} ]] ; then
 	CC_COMP=$(get_current_profile)
