@@ -649,41 +649,42 @@ for x in "$@" ; do
 			;;
 		*)
 			${SET_X} && set -x
-			if [[ -z ${CC_COMP} ]] ; then
-				if [[ -z $(echo ${x} | tr -d '[:digit:]') ]] ; then
-					# User gave us a # representing the profile
-					i=1
-					for y in "${GCC_ENV_D}"/* ; do
-						[[ -f ${y} ]] || continue
-						[[ ${y} == */config* ]] && continue
 
-						if [[ -f ${y} ]] && [[ ${x} == ${i} ]] ; then
-							CC_COMP=${y##*/}
-							break
-						fi
-						((++i))
-					done
-					if [[ -z ${CC_COMP} ]] ; then
-						die_eerror "Could not locate profile #$x !"
+			if [[ -n ${CC_COMP} ]] ; then
+				die_eerror "Too many arguments!  Run ${argv0} without parameters for help."
+			fi
+
+			if [[ -z $(echo ${x} | tr -d '[:digit:]') ]] ; then
+				# User gave us a # representing the profile
+				i=1
+				for y in "${GCC_ENV_D}"/* ; do
+					[[ -f ${y} ]] || continue
+					[[ ${y} == */config* ]] && continue
+
+					if [[ -f ${y} ]] && [[ ${x} == ${i} ]] ; then
+						CC_COMP=${y##*/}
+						break
 					fi
-				else
-					# User gave us a full HOST-gccver
-					x=${x##*/}
-					if [[ ${DOIT} == "get_current_profile" && -z $(ls "${GCC_ENV_D}"/${x}-* 2>/dev/null) ]] || \
-					   [[ ${DOIT} != "get_current_profile" && ! -f ${GCC_ENV_D}/${x} ]]
-					then
-						# Maybe they just gave us a gccver ...
-						get_chost
-						if [[ -f ${GCC_ENV_D}/${CHOST}-${x} ]] ; then
-							x=${CHOST}-${x}
-						else
-							die_eerror "Could not locate '$x' in '${GCC_ENV_D}/' !"
-						fi
-					fi
-					CC_COMP=${x}
+					((++i))
+				done
+				if [[ -z ${CC_COMP} ]] ; then
+					die_eerror "Could not locate profile #$x !"
 				fi
 			else
-				die_eerror "Too many arguments!  Run ${argv0} without parameters for help."
+				# User gave us a full HOST-gccver
+				x=${x##*/}
+				if [[ ${DOIT} == "get_current_profile" && -z $(ls "${GCC_ENV_D}"/${x}-* 2>/dev/null) ]] || \
+				   [[ ${DOIT} != "get_current_profile" && ! -f ${GCC_ENV_D}/${x} ]]
+				then
+					# Maybe they just gave us a gccver ...
+					get_chost
+					if [[ -f ${GCC_ENV_D}/${CHOST}-${x} ]] ; then
+						x=${CHOST}-${x}
+					else
+						die_eerror "Could not locate '$x' in '${GCC_ENV_D}/' !"
+					fi
+				fi
+				CC_COMP=${x}
 			fi
 			;;
 	esac
