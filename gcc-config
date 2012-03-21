@@ -44,27 +44,27 @@ GENTOO_LIBDIR="@GENTOO_LIBDIR@"
 [[ ${GENTOO_LIBDIR} == @*@ ]] && GENTOO_LIBDIR="lib"
 
 usage() {
-cat << "USAGE_END"
-Usage: gcc-config [options] [CC Profile]
-Change the current cc/gcc profile, or give info about profiles.
+	cat <<-EOF
+	Usage: gcc-config [options] [CC Profile]
+	Change the current compiler profile, or give info about profiles.
 
-Options:
-  -C, --nocolor              Disable color output
-  -O, --use-old              Use the old profile if one was selected.
-  -f, --force                Make sure all config files are regenerated.
-  -c, --get-current-profile  Print current used gcc profile.
-  -l, --list-profiles        Print a list of available profiles.
-  -S, --split-profile        Split profiles into their components
-  -E, --print-environ        Print environment that can be used to setup the
-                             current gcc profile, or a specified one.
-  -B, --get-bin-path         Print path where binaries of the given/current
-                             profile are located.
-  -L, --get-lib-path         Print path where libraries of the given/current
-                             profile are located.
+	Options:
+	  -C, --nocolor              Disable color output
+	  -O, --use-old              Use the old profile if one was selected.
+	  -f, --force                Make sure all config files are regenerated.
+	  -c, --get-current-profile  Print current used gcc profile.
+	  -l, --list-profiles        Print a list of available profiles.
+	  -S, --split-profile        Split profiles into their components
+	  -E, --print-environ        Print environment that can be used to setup the
+	                             current gcc profile, or a specified one.
+	  -B, --get-bin-path         Print path where binaries of the given/current
+	                             profile are located.
+	  -L, --get-lib-path         Print path where libraries of the given/current
+	                             profile are located.
 
-Profile names are of the form:  <CHOST>-<gcc version>
-For example:                    i686-pc-linux-gnu-3.2.1
-USAGE_END
+	Profile names are of the form:  <CTARGET>-<version>
+	For example:                    i686-pc-linux-gnu-3.2.1
+	EOF
 	exit ${1:-1}
 }
 [[ $# -lt 1 ]] && usage 1
