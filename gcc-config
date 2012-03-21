@@ -568,7 +568,6 @@ chop_gcc_ver_spec() {
 	echo ${splitTED/ /-}                 # ver-spec
 }
 
-SET_X=false
 NEED_ACTION="yes"
 DOIT="switch_profile"
 FORCE="no"
@@ -632,7 +631,7 @@ for x in "$@" ; do
 			fi
 			;;
 		-x|--debug)
-			SET_X=true
+			set -x
 			;;
 		-C|--nocolor)
 			# nothing to do; functions.sh parsed this for us
@@ -648,8 +647,6 @@ for x in "$@" ; do
 			die_eerror "Invalid switch!  Run ${argv0} without parameters for help."
 			;;
 		*)
-			${SET_X} && set -x
-
 			if [[ -n ${CC_COMP} ]] ; then
 				die_eerror "Too many arguments!  Run ${argv0} without parameters for help."
 			fi
@@ -689,8 +686,6 @@ for x in "$@" ; do
 			;;
 	esac
 done
-
-${SET_X} && set -x
 
 if [[ ${DOIT} == "switch_profile" ]] && [[ -z ${CC_COMP} ]] ; then
 	usage 1
