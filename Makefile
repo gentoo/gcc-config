@@ -28,6 +28,9 @@ install: all
 		gcc-config > $(DESTDIR)$(BINDIR)/gcc-config
 	chmod a+rx $(DESTDIR)$(BINDIR)/gcc-config
 
+test check:
+	cd tests && ./run_tests
+
 dist:
 	@if [ "$(PV)" = "git" ] ; then \
 		printf "please run: make dist PV=xxx\n(where xxx is a git tag)\n" ; \
