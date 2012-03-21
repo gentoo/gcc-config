@@ -52,9 +52,6 @@ Options:
   -C, --nocolor              Disable color output
   -O, --use-old              Use the old profile if one was selected.
   -f, --force                Make sure all config files are regenerated.
-  -P, --use-portage-chost    Only set to given profile if its CHOST is the
-                             same as that set in /etc/portage/make.conf
-                             (or one of other portage config files...).
   -c, --get-current-profile  Print current used gcc profile.
   -l, --list-profiles        Print a list of available profiles.
   -S, --split-profile        Split profiles into their components
@@ -582,7 +579,6 @@ chop_gcc_ver_spec() {
 SET_X=false
 NEED_ACTION="yes"
 DOIT="switch_profile"
-CHECK_CHOST="no"
 FORCE="no"
 
 CC_COMP=
@@ -602,9 +598,6 @@ for x in "$@" ; do
 			;;
 		-f|--force)
 			FORCE="yes"
-			;;
-		-P|--use-portage-chost)
-			CHECK_CHOST="yes"
 			;;
 		-c|--get-current-profile)
 			if [[ ${NEED_ACTION} == "yes" ]] ; then
@@ -748,15 +741,6 @@ if [[ ${DOIT} != "get_current_profile" ]] ; then
 		eerror "${argv0}: Profile does not exist or invalid setting for ${GCC_ENV_D}/${CC_COMP}" 1>&2
 		#exit 1
 	fi
-fi
-
-if [[ ${CHECK_CHOST} == "yes" ]] ; then
-	# Chosen CHOST are not the same as the real CHOST according to
-	# make.conf, and --use-portage-chost option was given, so do nothing
-	get_real_chost
-	CC_COMP_VERSION=$(chop_gcc_ver_spec ${CC_COMP})
-	CC_COMP_TARGET=${CC_COMP:0:${#CC_COMP}-${#CC_COMP_VERSION}-1}
-	[[ ${CC_COMP_TARGET} != ${REAL_CHOST} ]] && exit 0
 fi
 
 ${DOIT}
