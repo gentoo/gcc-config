@@ -162,6 +162,19 @@ convert_profile_paths() {
 	return 0
 }
 
+# Usage: atomic_cp <source file> <destination dir> <destination file name> <reference file (mtimes)>
+atomic_cp() {
+	local src=$1 dst=$2 dstfile=$3 ref=$4 tmp
+	tmp="${dst}/.gcc.config.${dstfile}"
+	# We need to do this mv to make the update atomic in case
+	# someone is compiling at the same time they're running
+	# gcc-config (which is OK if you're just updating gcc-config
+	# itself and picking the same profile).
+	cp -f "${src}" "${tmp}"
+	touch -r "${ref}" "${tmp}"
+	mv "${tmp}" "${dst}/${dstfile}"
+}
+
 update_wrappers() {
 	local CTARGET=$1
 
@@ -180,40 +193,36 @@ update_wrappers() {
 	# the generated env.d file so we can scrub things better.
 	# After that, we can use a dynamic list based on what tools are
 	# actually available in ${GCC_PATH}/.
+	local ref
 	for x in {,${CTARGET}-}{cpp,cc,gcc,c++,g++,f77,g77,gcj,gcjh,gcov,gdc,gdmd,gfortran,gccgo} ; do
 		# Obviously don't want to touch native stuff for cross-compilers
 		[[ ${x} != ${CTARGET}-* ]] && is_cross_compiler && continue
-
-		# Make sure we have no stale wrappers
-		rm -f "${ROOT}/usr/bin/${x}"
-		[[ ${x:${#x}-3} == "gcc" || ${x:${#x}-3} == "g++" ]] \
-			&& rm -f "${ROOT}/usr/bin/${x}"{32,64}
 
 		# Only install a wrapper if the binary exists ...
 		# We want to figure out the 'reference file' for each
 		# wrapper (the binary we're 'wrapping') so that we can
 		# sync mtimes together.  This makes things like ccache
 		# happy.  See Bug #70548 for more info.
-		local ref
 		case ${x} in
 			cc)  ref=gcc;;
 			f77) ref=g77;;
 			*)   ref=${x};;
 		esac
-		ref="${ROOT}/${GCC_PATH}/${ref}"
+		ref="${ROOT}${GCC_PATH}/${ref}"
 		if [[ -x ${ref} ]] ; then
-			cp -f "${wrapper}" "${ROOT}/usr/bin/${x}"
-			touch -r "${ref}" "${ROOT}/usr/bin/${x}"
+			atomic_cp "${wrapper}" "${ROOT}usr/bin" "${x}" "${ref}"
+		else
+			# Make sure we have no stale wrappers
+			rm -f "${bin}"
 		fi
 	done
 	# legacy cruft, make sure we dont leave it laying around #143205
-	rm -f "${ROOT}/usr/bin/${CTARGET}-cc"
+	rm -f "${ROOT}usr/bin/${CTARGET}-cc" "${ROOT}usr/bin"/{${CTARGET}-,}g{cc,++}{32,64}
 
 	# install the canonical cpp wrapper
 	[[ ${CTARGET} == *-solaris* ]] && return 0
 	if ! is_cross_compiler ; then
-		cp -f "${wrapper}" "${ROOT}/lib/cpp"
-		touch -r "${ROOT}/usr/bin/cpp" "${ROOT}/lib/cpp"
+		atomic_cp "${wrapper}" "${ROOT}lib" "cpp" "${ROOT}usr/bin/cpp"
 	fi
 }
 
