@@ -228,6 +228,81 @@ mv_if_diff() {
 	fi
 }
 
+handle_split_usr() {
+	# We need to make sure that libgcc_s.so / libunwind.so make it into /lib.
+	# On many systems (x86/amd64/etc...), this will probably never matter,
+	# but on other systems (arm/mips/etc...), this is quite critical.
+	# http://bugs.gentoo.org/60190
+	#
+	# The funky move magic is required for proper updating of in-use files.
+	#
+	# XXX: This fails when configuring the native target in a cross-compiled
+	#      ROOT.  Only way around that is to store the multilib configuration
+	#      in the gcc profile when we compiled it and then read that instead
+	#      of executing the gcc.  Some day.
+	#
+	# We use the same ordering logic as mentioned in the MY_LDPATH setup.
+	# We get the libs from the latest version available.
+	local LATEST_GCC_PATH gcc LATEST_GCC_LDPATH
+
+	eval $(gawk -F= '
+		{
+			if ($1 == "GCC_PATH") {
+				p = gensub("\"","","g",$2)
+			} else if ($1 == "LDPATH") {
+				l = gensub("\"","","g",$2)
+			}
+		}
+		END {
+			print "LATEST_GCC_PATH=\"" p "\""
+			print "LATEST_GCC_LDPATH=\"" l "\""
+		}
+		' "${GCC_ENV_D}"/${CHOST}-*
+	)
+
+	# If /usr isn't a sep mount, then don't bother with linking stuff.
+	if ln "${ROOT}/${LATEST_GCC_LDPATH%%:*}/libgcc.a" "${ROOT}"/lib/.gcc.config.$$ 2>/dev/null ; then
+		rm -f "${ROOT}"/lib/.gcc.config.$$
+		if [[ -n $(find "${ROOT}"/lib*/lib{gcc_s,unwind}.so* 2>/dev/null) ]] ; then
+			# If we previously had stuff in /, make sure ldconfig gets re-run.
+			rm -f "${ROOT}"/lib*/lib{gcc_s,unwind}.so*
+			return 1
+		fi
+		return 0
+	fi
+
+	gcc="${ROOT}${LATEST_GCC_PATH}/gcc"
+
+	local multilib
+	for multilib in $("${gcc}" -print-multi-lib); do
+		local multiarg=${multilib#*;}
+		multiarg=${multiarg/@/-}
+		local multilibdir=${multilib%;*}
+		local libdir="${ROOT}lib/"$("${gcc}" ${multiarg} -print-multi-os-directory)
+
+		mkdir -p "${libdir}"/.gcc.config.new || continue # !?!?!
+
+		local gcclib
+		for gcclib in gcc_s unwind ; do
+			# This assumes that we always have the .so symlink,
+			# but for now, that should be safe ...
+			gcclib=$("${gcc}" -print-file-name="lib${gcclib}.so")
+			if [[ ${gcclib} == */* ]] ; then
+				cp -pP "${ROOT}${gcclib}".* "${libdir}"/.gcc.config.new/
+				# no need to sanity remove this as the `mv` should take
+				# care of it.  we also need this step to be completly atomic
+				# for systems that have even `mv` linked against libgcc_s.so.
+				# http://bugs.gentoo.org/150257
+				#rm -f "${libdir}"/lib${gcclib}.so*
+				mv -f "${libdir}"/.gcc.config.new/* "${libdir}"/
+			fi
+		done
+		rmdir "${libdir}"/.gcc.config.new
+	done
+
+	return 0
+}
+
 switch_profile() {
 	local GCC_PROFILES=
 	local OLD_CC_COMP=
@@ -255,7 +330,7 @@ switch_profile() {
 	# GCC_SPECS have long been stable, and people messing with
 	# them know better than to install bad paths, so don't bother
 	# with sanity checks.
-	local envd="${ENV_D}/05gcc-${CTARGET}"
+	local envd="${ENV_D}/05gcc-${CTARGET}" envd_changed=0
 	cat <<-EOF > "${envd}.tmp"
 	PATH="${GCC_PATH}"
 	ROOTPATH="${GCC_PATH}"
@@ -306,66 +381,16 @@ switch_profile() {
 			done
 		fi
 
-		# We need to make sure that libgcc_s.so / libunwind.so make it into /lib.
-		# On many systems (x86/amd64/etc...), this will probably never matter,
-		# but on other systems (arm/mips/etc...), this is quite critical.
-		# http://bugs.gentoo.org/60190
-		#
-		# The funky move magic is required for proper updating of in-use files.
-		#
-		# XXX: This fails when configuring the native target in a cross-compiled
-		#      ROOT.  Only way around that is to store the multilib configuration
-		#      in the gcc profile when we compiled it and then read that instead
-		#      of executing the gcc.  Some day.
-		#
-		# We use the same ordering logic as mentioned in the MY_LDPATH setup.
-		# We get the libs from the latest version available.
-		local LATEST_GCC_PATH gcc LATEST_GCC_LDPATH
-
-		LATEST_GCC_PATH=$(gawk -F= '
-				$1 == "GCC_PATH" {
-					p = gensub("\"","","g",$2)
-				}
-				END { print p }
-			' "${GCC_ENV_D}"/${CHOST}-*
-		)
-		gcc="${ROOT}${LATEST_GCC_PATH}/gcc"
-
-		local multilib
-		for multilib in $("${gcc}" -print-multi-lib); do
-			local multiarg=${multilib#*;}
-			multiarg=${multiarg/@/-}
-			local multilibdir=${multilib%;*}
-			local libdir="${ROOT}lib/"$("${gcc}" ${multiarg} -print-multi-os-directory)
-
-			mkdir -p "${libdir}"/.gcc.config.new || continue # !?!?!
-
-			local gcclib
-			for gcclib in gcc_s unwind ; do
-				# This assumes that we always have the .so symlink,
-				# but for now, that should be safe ...
-				gcclib=$("${gcc}" -print-file-name="lib${gcclib}.so")
-				if [[ ${gcclib} == */* ]] ; then
-					cp -pP "${ROOT}${gcclib}".* "${libdir}"/.gcc.config.new/
-					# no need to sanity remove this as the `mv` should take
-					# care of it.  we also need this step to be completly atomic
-					# for systems that have even `mv` linked against libgcc_s.so.
-					# http://bugs.gentoo.org/150257
-					#rm -f "${libdir}"/lib${gcclib}.so*
-					mv -f "${libdir}"/.gcc.config.new/* "${libdir}"/
-				fi
-			done
-			rmdir "${libdir}"/.gcc.config.new
-		done
+		handle_split_usr
+		: $(( envd_changed += $? ))
 	fi
 	mv_if_diff "${envd}.tmp" "${envd}"
-	local envd_changed=$?
+	: $(( envd_changed += $? ))
 
 	update_wrappers ${CTARGET}
 
 	if [[ ${ROOT} == "/" ]] && \
-	   [[ ${OLD_CC_COMP} != ${CC_COMP} || ${FORCE} == "yes" ]] && \
-	   [[ ${envd_changed} -eq 1 ]]
+	   [[ ${FORCE} == "yes" || ${envd_changed} -gt 0 ]]
 	then
 		# in case python is broken ...
 		if ! env-update ; then
