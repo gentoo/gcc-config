@@ -214,7 +214,7 @@ update_wrappers() {
 	[[ ${CTARGET} == *-solaris* ]] && return 0
 	if ! is_cross_compiler ; then
 		cp -f "${wrapper}" "${ROOT}/lib/cpp"
-		touch -r "${ROOT}/usr/bin/${CTARGET}-cpp" "${ROOT}/lib/cpp"
+		touch -r "${ROOT}/usr/bin/cpp" "${ROOT}/lib/cpp"
 	fi
 }
 
