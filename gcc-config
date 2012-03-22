@@ -424,10 +424,6 @@ switch_profile() {
 
 get_current_profile() {
 	local conf="${GCC_ENV_D}/config-${CTARGET}"
-	if [[ -f ${conf} ]] && [[ -n ${CC_COMP} ]] && is_cross_compiler ; then
-		conf="${conf}-${CC_COMP}"
-	fi
-
 	if [[ ! -f ${conf} ]] ; then
 		eerror "${argv0}: No gcc profile is active!"
 		return 1
