@@ -308,7 +308,9 @@ switch_profile() {
 	local OLD_CC_COMP=
 	local GCC_PATH=
 
-	[[ $(id -u) != "0" ]] && die "Must be root"
+	# Make sure we have write access to the dirs.  Do not require `root`
+	# so that we work with prefix/cross/etc... setups that run as user.
+	[[ ! -w ${ROOT} ]] && die "need write access to ${ROOT}"
 
 	if is_cross_compiler ; then
 		ebegin "Switching cross-compiler to ${CC_COMP}"
