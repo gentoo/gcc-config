@@ -339,14 +339,21 @@ switch_profile() {
 
 	# GCC_SPECS have long been stable, and people messing with
 	# them know better than to install bad paths, so don't bother
-	# with sanity checks.
-	local envd="${ENV_D}/05gcc-${CTARGET}" envd_changed=0
-	cat <<-EOF > "${envd}.tmp"
-	PATH="${GCC_PATH}"
-	ROOTPATH="${GCC_PATH}"
-	GCC_SPECS="${GCC_SPECS}"
-	EOF
+	# with sanity checks anymore.
+
 	echo "CURRENT=${CC_COMP}" > "${GCC_ENV_D}/config-${CTARGET}"
+
+	# Give the native gcc a higher precedence so its PATH gets
+	# searched first.  After all, we tend to run the native
+	# compiler a *lot* more than the cross-compilers.
+	local envd envd_num envd_changed=0
+	is_cross_compiler && envd_num="05" || envd_num="04"
+	envd="${ENV_D}/${envd_num}gcc-${CTARGET}"
+	cat <<-EOF > "${envd}.tmp"
+		PATH="${GCC_PATH}"
+		ROOTPATH="${GCC_PATH}"
+		GCC_SPECS="${GCC_SPECS}"
+	EOF
 	if ! is_cross_compiler ; then
 		# Regardless of the profile selected, keep the runtime lookup
 		# paths stable.  Otherwise, all the apps that were built with
@@ -368,13 +375,13 @@ switch_profile() {
 		if [[ -d ${ROOT}/etc/ld.so.conf.d ]] ; then
 			echo "${MY_LDPATH}" > "${ROOT}"/etc/ld.so.conf.d/05gcc-${CTARGET}.conf
 		else
-			echo "LDPATH=\"${MY_LDPATH}\"" >> "${envd}.tmp"
+			echo "LDPATH=\"${MY_LDPATH}\"" >> "${envd}tmp"
 		fi
 
 		# Punt old files; maybe globs too much, but oh well
 		rm -f \
 			"${GCC_ENV_D}/NATIVE" "${GCC_ENV_D}/.NATIVE" \
-			"${ENV_D}/05gcc" \
+			"${ENV_D}/05gcc" "${ENV_D}/05gcc-${CTARGET}" \
 			"${ENV_D}/05gcc-${CTARGET}"-* "${GCC_ENV_D}/config-${CTARGET}"-*
 
 		# Help out the gcc wrapper
