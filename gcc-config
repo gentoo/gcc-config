@@ -139,7 +139,6 @@ get_chost() {
 }
 
 is_cross_compiler() {
-	get_chost
 	[[ ${CC_COMP/${CHOST}} == ${CC_COMP} ]]
 }
 
@@ -349,7 +348,6 @@ switch_profile() {
 		# static libraries here as gcc itself will take care of
 		# linking against its own internal paths first. #297685
 		local MY_LDPATH
-		get_chost
 		MY_LDPATH=$(${SED} -n \
 			-e '/^LDPATH=/{s|LDPATH=||;s|"||g;s|:|\n|g;p}' \
 			"${GCC_ENV_D}"/${CHOST}-* | tac
