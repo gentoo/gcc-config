@@ -20,6 +20,7 @@ source /etc/init.d/functions.sh || {
 	exit 1
 }
 esyslog() { :; }
+has() { [[ " ${*:2} " == *" $1 "* ]]; }
 die() { eerror "${argv0}: $*"; exit 1; }
 umask 022
 
@@ -175,8 +176,22 @@ atomic_cp() {
 	mv "${tmp}" "${dst}/${dstfile}"
 }
 
+uniq_wrapper_list() {
+	local ver=$1; shift
+	# We want to normalize away existing target prefix.
+	set -- "${@#${CTARGET}-*}"
+	# And we want to filter out any version suffixed progs.
+	set -- "${@//*-${ver}}"
+	# Finally, filter out dupes.
+	printf '%s\n' "$@" | sort -u
+}
+
 update_wrappers() {
-	local CTARGET=$1
+	# Update the wrappers for this profile.  We need to clean out
+	# the old wrappers if the functionality no longer exists (like
+	# re-emerging gcc with diff USE flags) and install new wrappers
+	# for new functionality (like a version bump).
+	local x CTARGET=$1
 
 	# Find the bin wrapper
 	local wrapper
@@ -185,19 +200,39 @@ update_wrappers() {
 		[[ -e ${wrapper} ]] && break
 	done
 
-	# Update the wrappers for this profile.  We maintain this list
-	# by hand as the tools that are available can come & go if the
-	# user re-emerges gcc with dif USE flags.  We need to clean out
-	# the old wrappers if the functionality no longer exists.
-	# XXX: Future work: save the list of wrappers we generated in
-	# the generated env.d file so we can scrub things better.
-	# After that, we can use a dynamic list based on what tools are
-	# actually available in ${GCC_PATH}/.
-	local ref
-	for x in {,${CTARGET}-}{cpp,cc,gcc,c++,g++,f77,g77,gcj,gcjh,gcov,gdc,gdmd,gfortran,gccgo} ; do
-		# Obviously don't want to touch native stuff for cross-compilers
-		[[ ${x} != ${CTARGET}-* ]] && is_cross_compiler && continue
+	# Use the old dir to see what we wrapped up previously.
+	local old_wrappers=( $(
+		[[ -n ${OLD_GCC_PATH} ]] || exit 1
+		uniq_wrapper_list "${OLD_CC_COMP_VERSION}" $(
+			cd "${ROOT}${OLD_GCC_PATH}" 2>/dev/null || exit 1
+			echo *
+		)
+	) )
 
+	# See what new stuff we need to wrap up.
+	local new_wrappers=( $(
+		uniq_wrapper_list "${CC_COMP_VERSION}" $(
+			cd "${ROOT}${GCC_PATH}" || exit 1
+			echo *
+		)
+	) )
+	[[ -z ${new_wrappers} ]] && return 1
+
+	# First delete the wrappers that the old one provided but the
+	# new one does not.
+	for x in "${old_wrappers[@]}" ; do
+		has "${x}" "${new_wrappers[@]}" && continue
+		rm -f "${ROOT}usr/bin/${x}" "${ROOT}usr/bin/${CTARGET}-${x}"
+	done
+
+	# For all toolchains, we want to create the fully qualified
+	# `tuple-foo`.  Only native ones do we want the simple `foo`.
+	local all_wrappers=( ${new_wrappers[@]/#/${CTARGET}-} )
+	is_cross_compiler || all_wrappers+=( "${new_wrappers[@]}" )
+
+	# Then install wrappers for anything new to this profile.
+	local ref
+	for x in "${all_wrappers[@]}" ; do
 		# Only install a wrapper if the binary exists ...
 		# We want to figure out the 'reference file' for each
 		# wrapper (the binary we're 'wrapping') so that we can
@@ -209,9 +244,19 @@ update_wrappers() {
 			*)   ref=${x};;
 		esac
 		ref="${ROOT}${GCC_PATH}/${ref}"
+		if [[ ! -x ${ref} ]] ; then
+			if is_cross_compiler ; then
+				ewarn "insanity with ${x} and ${ref}"
+			else
+				# For native targets, the ref might not be
+				# fully qualified, so use the short name.
+				ref="${ROOT}${GCC_PATH}/${x#${CTARGET}-}"
+			fi
+		fi
 		if [[ -x ${ref} ]] ; then
 			atomic_cp "${wrapper}" "${ROOT}usr/bin" "${x}" "${ref}"
 		else
+			ewarn "double insanity with ${x} and ${ref}"
 			# Make sure we have no stale wrappers
 			rm -f "${bin}"
 		fi
@@ -312,9 +357,8 @@ handle_split_usr() {
 }
 
 switch_profile() {
-	local GCC_PROFILES=
-	local OLD_CC_COMP=
-	local GCC_PATH=
+	local OLD_CC_COMP OLD_CC_COMP_VERSION OLD_GCC_PATH OLD_GCC_VER
+	local GCC_PATH
 
 	# Make sure we have write access to the dirs.  Do not require `root`
 	# so that we work with prefix/cross/etc... setups that run as user.
@@ -336,6 +380,11 @@ switch_profile() {
 
 	# Ignore active profile errors here since we're switching away
 	OLD_CC_COMP=$(get_current_profile 2>/dev/null)
+	if [[ -f ${GCC_ENV_D}/${OLD_CC_COMP} ]] ; then
+		OLD_GCC_PATH=$(show_var GCC_PATH "${GCC_ENV_D}/${OLD_CC_COMP}")
+		OLD_GCC_VER=$(show_var GCC_VER "${GCC_ENV_D}/${OLD_CC_COMP}")
+	fi
+	OLD_CC_COMP_VERSION=${OLD_GCC_VER:-$(chop_gcc_ver_spec ${OLD_CC_COMP})}
 
 	# GCC_SPECS have long been stable, and people messing with
 	# them know better than to install bad paths, so don't bother
