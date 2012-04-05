@@ -329,11 +329,11 @@ switch_profile() {
 	if egrep -q '^(PATH|ROOTPATH)=' "${GCC_ENV_D}/${CC_COMP}" ; then
 		convert_profile_paths "${GCC_ENV_D}/${CC_COMP}" || return 1
 	fi
-	source_var GCC_PATH "${GCC_ENV_D}/${CC_COMP}"
 
 	# Setup things properly again for this profile
 	unset GCC_SPECS LDPATH
 	source "${GCC_ENV_D}/${CC_COMP}"
+
 	# Ignore active profile errors here since we're switching away
 	OLD_CC_COMP=$(get_current_profile 2>/dev/null)
 
