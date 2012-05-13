@@ -228,22 +228,25 @@ update_wrappers() {
 	# For all toolchains, we want to create the fully qualified
 	# `tuple-foo`.  Only native ones do we want the simple `foo`.
 	local all_wrappers=( ${new_wrappers[@]/#/${CTARGET}-} )
-	is_cross_compiler || all_wrappers+=( "${new_wrappers[@]}" )
+	if ! is_cross_compiler ; then
+		all_wrappers+=( "${new_wrappers[@]}" )
+		# There are a few fun extra progs which we have to handle #412319
+		all_wrappers+=( cc:gcc f77:g77 )
+	fi
 
 	# Then install wrappers for anything new to this profile.
 	local ref
 	for x in "${all_wrappers[@]}" ; do
-		# Only install a wrapper if the binary exists ...
 		# We want to figure out the 'reference file' for each
 		# wrapper (the binary we're 'wrapping') so that we can
 		# sync mtimes together.  This makes things like ccache
 		# happy.  See Bug #70548 for more info.
-		case ${x} in
-			cc)  ref=gcc;;
-			f77) ref=g77;;
-			*)   ref=${x};;
-		esac
-		ref="${ROOT}${GCC_PATH}/${ref}"
+		ref="${ROOT}${GCC_PATH}/${x#*:}"
+		if [[ ${x} == *:* ]] ; then
+			# Only install a wrapper if the reference binary exists ...
+			[[ -x ${ref} ]] || continue
+		fi
+		x=${x%:*}
 		if [[ ! -x ${ref} ]] ; then
 			if is_cross_compiler ; then
 				ewarn "insanity with ${x} and ${ref}"
@@ -253,6 +256,8 @@ update_wrappers() {
 				ref="${ROOT}${GCC_PATH}/${x#${CTARGET}-}"
 			fi
 		fi
+
+		# Now do the actual wrapper copy with paths to the reference binary
 		if [[ -x ${ref} ]] ; then
 			atomic_cp "${wrapper}" "${ROOT}usr/bin" "${x}" "${ref}"
 		else

@@ -1,7 +1,9 @@
 #!/bin/bash
 for (( i = 1; i < 4; ++i )) ; do
-	rm -f usr/bin/cpp
+	rm -f usr/bin/*
 	gcc-config -C ${i} "$@" || exit 1
-	[[ -e usr/bin/cpp ]] || exit 1
+	for b in {,${CHOST}-}{cpp,gcc} cc ; do
+		[[ -e usr/bin/${b} ]] || exit 1
+	done
 	[[ -e etc/env.d/04gcc-${CHOST} ]] || exit 1
 done
