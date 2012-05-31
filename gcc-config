@@ -263,7 +263,7 @@ update_wrappers() {
 		else
 			ewarn "double insanity with ${x} and ${ref}"
 			# Make sure we have no stale wrappers
-			rm -f "${bin}"
+			rm -f "${ROOT}usr/bin/${x}"
 		fi
 	done
 	# legacy cruft, make sure we dont leave it laying around #143205
