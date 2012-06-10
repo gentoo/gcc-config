@@ -213,7 +213,7 @@ static void find_wrapper_target(struct wrapper_data *data)
 	/* Only our wrapper is in PATH, so get the CC path using
 	 * gcc-config and execute the real binary in there ...
 	 */
-	FILE *inpipe = popen(GCC_CONFIG " --get-bin-path", "r");
+	FILE *inpipe = popen("ROOT= " GCC_CONFIG " --get-bin-path", "r");
 	if (inpipe == NULL)
 		wrapper_errp("could not open pipe");
 
