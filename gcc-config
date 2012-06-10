@@ -406,9 +406,15 @@ switch_profile() {
 	cat <<-EOF > "${envd}.tmp"
 		PATH="${GCC_PATH}"
 		ROOTPATH="${GCC_PATH}"
-		GCC_SPECS="${GCC_SPECS}"
 	EOF
 	if ! is_cross_compiler ; then
+		# Only write GCC_SPECS for the native compiler. #420097
+		# Otherwise, the env.d of cross-compilers come after the
+		# native one and overrides the native setting.  Further,
+		# we don't support GCC_SPECS with cross-compilers, so
+		# writing out that settings doesn't make much sense.
+		printf 'GCC_SPECS="%s"\n' "${GCC_SPECS}" >> "${envd}.tmp"
+
 		# Regardless of the profile selected, keep the runtime lookup
 		# paths stable.  Otherwise, all the apps that were built with
 		# a new compiler will start trying to use older versions of
