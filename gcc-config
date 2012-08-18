@@ -8,7 +8,7 @@
 
 : ${ROOT:=/}
 [[ ${ROOT} != */ ]] && ROOT="${ROOT}/"
-[[ ${ROOT} != /* ]] && ROOT="${PWD}${ROOT}"
+[[ ${ROOT} != /* ]] && ROOT="${PWD%/}/${ROOT}"
 
 cd /
 
