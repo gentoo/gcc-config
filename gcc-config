@@ -294,32 +294,15 @@ handle_split_usr() {
 	#
 	# The funky move magic is required for proper updating of in-use files.
 	#
-	# XXX: This fails when configuring the native target in a cross-compiled
-	#      ROOT.  Only way around that is to store the multilib configuration
-	#      in the gcc profile when we compiled it and then read that instead
-	#      of executing the gcc.  Some day.
-	#
 	# We use the same ordering logic as mentioned in the MY_LDPATH setup.
 	# We get the libs from the latest version available.
-	local LATEST_GCC_PATH gcc LATEST_GCC_LDPATH
+	local LDPATH
 
-	eval $(gawk -F= '
-		{
-			if ($1 == "GCC_PATH") {
-				p = gensub("\"","","g",$2)
-			} else if ($1 == "LDPATH") {
-				l = gensub("\"","","g",$2)
-			}
-		}
-		END {
-			print "LATEST_GCC_PATH=\"" p "\""
-			print "LATEST_GCC_LDPATH=\"" l "\""
-		}
-		' "${GCC_ENV_D}"/${CHOST}-*
-	)
+	eval $(grep -h '^LDPATH=' "${GCC_ENV_D}"/${CHOST}-* | tail -1)
+	LDPATH=${LDPATH%%:*}
 
 	# If /usr isn't a sep mount, then don't bother with linking stuff.
-	if ln "${ROOT}/${LATEST_GCC_LDPATH%%:*}/libgcc.a" "${ROOT}"/lib/.gcc.config.$$ 2>/dev/null ; then
+	if ln "${ROOT}/${LDPATH}/libgcc.a" "${ROOT}"/lib/.gcc.config.$$ 2>/dev/null ; then
 		rm -f "${ROOT}"/lib/.gcc.config.$$
 		if [[ -n $(find "${ROOT}"/lib*/lib{gcc_s,unwind}.so* 2>/dev/null) ]] ; then
 			# If we previously had stuff in /, make sure ldconfig gets re-run.
@@ -329,34 +312,25 @@ handle_split_usr() {
 		return 0
 	fi
 
-	gcc="${ROOT}${LATEST_GCC_PATH}/gcc"
-
-	local multilib
-	for multilib in $("${gcc}" -print-multi-lib); do
-		local multiarg=${multilib#*;}
-		multiarg=${multiarg/@/-}
-		local multilibdir=${multilib%;*}
-		local libdir="${ROOT}lib/"$("${gcc}" ${multiarg} -print-multi-os-directory)
-
-		mkdir -p "${libdir}"/.gcc.config.new || continue # !?!?!
-
-		local gcclib
-		for gcclib in gcc_s unwind ; do
-			# This assumes that we always have the .so symlink,
-			# but for now, that should be safe ...
-			gcclib=$("${gcc}" -print-file-name="lib${gcclib}.so")
-			if [[ ${gcclib} == */* ]] ; then
-				cp -pP "${ROOT}${gcclib}".* "${libdir}"/.gcc.config.new/
-				# no need to sanity remove this as the `mv` should take
-				# care of it.  we also need this step to be completly atomic
-				# for systems that have even `mv` linked against libgcc_s.so.
-				# http://bugs.gentoo.org/150257
-				#rm -f "${libdir}"/lib${gcclib}.so*
-				mv -f "${libdir}"/.gcc.config.new/* "${libdir}"/
-			fi
+	# Only bother with this stuff for the native ABI.  We assume the user
+	# doesn't have critical binaries for non-native ABIs which is fair.
+	local gcclib
+	local libdir="${ROOT}${GENTOO_LIBDIR}"
+	mkdir -p "${libdir}"/.gcc.config.new || return 0 # !?!?!
+	for gcclib in gcc_s unwind ; do
+		# This assumes that we always have the .so symlink,
+		# but for now, that should be safe ...
+		for gcclib in "${ROOT}${LDPATH}"/lib${gcclib}.so.* ; do
+			[[ -e ${gcclib} ]] || continue
+			cp -pP "${gcclib}" "${libdir}"/.gcc.config.new/
+			# no need to sanity `rm` this as the `mv` should take care
+			# of it.  we also need this step to be completely atomic
+			# for systems that have even `mv` linked against libgcc_s.so.
+			# http://bugs.gentoo.org/150257
+			mv -f "${libdir}"/.gcc.config.new/* "${libdir}"/
 		done
-		rmdir "${libdir}"/.gcc.config.new
 	done
+	rmdir "${libdir}"/.gcc.config.new
 
 	return 0
 }
