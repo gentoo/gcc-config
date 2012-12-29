@@ -93,7 +93,7 @@ try_real_hard_to_find_CHOST() {
 		# newer portage supports spaces between the var and =
 		# CHOST     =  "this-is-retarded"
 		ret=$(eval $(
-			sed -n \
+			${SED} -n \
 				-e 's:[[:space:]]::g' \
 				-e "/^${varname}=/p" \
 				"${conf}"
