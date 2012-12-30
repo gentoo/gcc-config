@@ -18,7 +18,7 @@ if ! . /etc/init.d/functions.sh 2>/dev/null ; then
 	die() { echo "$*"; exit 1; }
 fi
 
-vars=( CHOST GCC_CONFIG ROOT TROOT NOCOLOR )
+vars=( CHOST GCC_CONFIG ROOT TROOT NOCOLOR RC_NOCOLOR )
 unset ${vars[@]}
 
 TROOT=${PWD}
@@ -29,6 +29,7 @@ fi
 PATH="${TROOT}/..:${PATH}"
 
 NOCOLOR="true"
+RC_NOCOLOR="yes" # Older baselayout/openrc versions.
 # This CHOST value doesn't matter.  It could be anything.
 # As long as all the configs we test are based on this being
 # the CHOST value.
