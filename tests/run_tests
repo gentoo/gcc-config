@@ -3,20 +3,20 @@
 # Avoid bash localization of error messages
 export LC_ALL=C
 
-if ! . /etc/init.d/functions.sh 2>/dev/null ; then
-	ebegin() { printf '%s ... ' "$*" ; }
-	eend() {
-		local r=${1:-0}
-		shift
-		if [[ $r -eq 0 ]] ; then
-			echo "[ ok ]"
-		else
-			echo "$* [ !! ]"
-		fi
-		return $r
-	}
-	die() { echo "$*"; exit 1; }
-fi
+. /etc/init.d/functions.sh 2>/dev/null
+ebegin() { printf '%s*%s %s ... ' "${GOOD}" "${NORMAL}" "$*" ; }
+eend() {
+	local r=${1:-0}
+	shift
+	if [[ $r -eq 0 ]] ; then
+		printf '[ %sok%s ]\n' "${GOOD}" "${NORMAL}"
+	else
+		printf '%s [ %s!!%s ]\n' "$*" "${BAD}" "${NORMAL}"
+	fi
+	return $r
+}
+die() { echo "$*" 1>&2; exit 1; }
+eval $(eval_ecolors)
 
 vars=( CHOST GCC_CONFIG ROOT TROOT NOCOLOR RC_NOCOLOR )
 unset ${vars[@]}
@@ -38,7 +38,7 @@ CHOST="x86_64-pc-linux-gnu"
 cmp_log() {
 	local ret log=$1 exp=$2
 	local v args=()
-	for v in ${vars[@]} ; do
+	for v in "${vars[@]}" ; do
 		args+=( -e "s:@${v}@:${!v}:g" )
 	done
 	args+=( -e "s|: line [0-9]*: |: |g" )
@@ -50,20 +50,25 @@ cmp_log() {
 	return ${ret}
 }
 
-rm -f */*.log*
+rm -f */*.log* */*.runit
 rm -rf TMP-*-rw-*
 
 if [[ $# -eq 0 ]] ; then
 	set -- */test*
 else
-	set -- ${@/%//test*}
-	set -- ${@//\/\///}
+	set -- "${@/%//test*}"
+	set -- "${@//\/\///}"
 fi
 
+max_jobs=$(getconf _NPROCESSORS_ONLN)
+jobs=()
 tret=0
 for t in "$@" ; do
 	[[ ${t} == *.exp ]] && continue
 
+	(
+	out=$(
+	(
 	ebegin "Running ${t}"
 
 	test=${t##*/}
@@ -75,7 +80,7 @@ for t in "$@" ; do
 
 	ROOT=${TROOT}/${tdir}
 
-	r="${ROOT}/runit"
+	r="${ROOT}/${test}.runit"
 	cat <<-EOF > "${r}"
 	#!/bin/bash
 	cd "${ROOT}"
@@ -101,5 +106,22 @@ for t in "$@" ; do
 	else
 		: $(( tret += $? ))
 	fi
+
+	) 2>&1
+	)
+	echo "${out}"
+	) &
+
+	# Run all the tests in parallel.
+	jobs+=( $! )
+	if [[ ${#jobs[@]} -ge ${max_jobs} ]] ; then
+		wait ${jobs[0]}
+		: $(( tret += $? ))
+		jobs=( ${jobs[@]:1} )
+	fi
+done
+for j in ${jobs[@]} ; do
+	wait ${j}
+	: $(( tret += $? ))
 done
 exit ${tret}
