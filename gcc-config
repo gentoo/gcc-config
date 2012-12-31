@@ -460,7 +460,7 @@ switch_profile() {
 			echo ""
 			if [[ ! -d /etc/ld.so.conf.d ]] ; then
 				show_var LDPATH "${ROOT}"/etc/env.d/05gcc-${CTARGET} \
-					| sed -e 's|:|\n|g' >> /etc/ld.so.conf
+					| ${SED} -e 's|:|\n|g' >> /etc/ld.so.conf
 			fi
 			ldconfig
 		fi
