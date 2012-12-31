@@ -1,0 +1,2 @@
+#!/bin/bash
+! egrep -nH '[[:space:]]+$' "${TROOT}"/../{gcc-config,wrapper.c}
