@@ -270,7 +270,6 @@ update_wrappers() {
 	rm -f "${ROOT}usr/bin/${CTARGET}-cc" "${ROOT}usr/bin"/{${CTARGET}-,}g{cc,++}{32,64}
 
 	# install the canonical cpp wrapper
-	[[ ${CTARGET} == *-solaris* ]] && return 0
 	if ! is_cross_compiler ; then
 		atomic_cp "${wrapper}" "${ROOT}lib" "cpp" "${ROOT}usr/bin/cpp"
 	fi
