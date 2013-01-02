@@ -14,21 +14,24 @@ LIBEXECDIR = $(LIBDIR)/misc
 MKDIR_P = mkdir -p -m 755
 INSTALL_EXE = install -m 755
 
-all: wrapper
+all: .gcc-config wrapper
 
 clean:
-	rm -f wrapper *.o core
+	rm -f .gcc-config wrapper *.o core
+
+.gcc-config: gcc-config
+	sed \
+		-e 's:@GENTOO_LIBDIR@:$(SUBLIBDIR):g' \
+		-e 's:@PV@:$(PV):g' \
+		$< > $@
+	chmod a+rx $@
 
 install: all
 	$(MKDIR_P) $(DESTDIR)$(BINDIR) $(DESTDIR)$(LIBEXECDIR)
 	$(INSTALL_EXE) wrapper $(DESTDIR)$(LIBEXECDIR)/$(PN)
-	sed \
-		-e 's:@GENTOO_LIBDIR@:$(SUBLIBDIR):g' \
-		-e 's:@PV@:$(PV):g' \
-		gcc-config > $(DESTDIR)$(BINDIR)/gcc-config
-	chmod a+rx $(DESTDIR)$(BINDIR)/gcc-config
+	$(INSTALL_EXE) .gcc-config $(DESTDIR)$(BINDIR)/gcc-config
 
-test check:
+test check: .gcc-config
 	cd tests && ./run_tests
 
 dist:

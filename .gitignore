@@ -9,4 +9,5 @@ a.out
 
 /gcc-config-*.tar.*
 
+/.gcc-config
 /wrapper

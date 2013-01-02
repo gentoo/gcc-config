@@ -22,7 +22,7 @@ vars=( CHOST GCC_CONFIG ROOT TROOT NOCOLOR RC_NOCOLOR )
 unset ${vars[@]}
 
 TROOT=${PWD}
-GCC_CONFIG="${TROOT}/../gcc-config"
+GCC_CONFIG="${TROOT}/../.gcc-config"
 if ! "${GCC_CONFIG}" --help >/dev/null ; then
 	die "could not find gcc-config in ${TROOT}/../"
 fi
@@ -86,6 +86,7 @@ for t in "$@" ; do
 	cd "${ROOT}"
 	$(for v in PATH ${vars[@]} ; do printf '%s="%s"\n' ${v} "${!v}" ; done)
 	export ${vars[@]}
+	gcc-config() { bash -c ". \${GCC_CONFIG}" gcc-config "\$@" ; }
 	. ./${test}
 	EOF
 	chmod a+rx "${r}"
