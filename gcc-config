@@ -311,6 +311,9 @@ handle_split_usr() {
 		return 0
 	fi
 
+	# Gentoo Prefix systems don't "boot", so no need to handle split-/usr
+	[[ -n ${EPREFIX} ]] && return 0
+
 	# Only bother with this stuff for the native ABI.  We assume the user
 	# doesn't have critical binaries for non-native ABIs which is fair.
 	local gcclib
