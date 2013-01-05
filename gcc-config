@@ -9,14 +9,17 @@
 : ${ROOT:=/}
 [[ ${ROOT} != */ ]] && ROOT="${ROOT}/"
 [[ ${ROOT} != /* ]] && ROOT="${PWD%/}/${ROOT}"
+EPREFIX="@GENTOO_EPREFIX@"
+[[ ${EPREFIX} == @*@ ]] && EPREFIX=""
+EROOT="${ROOT%/}${EPREFIX}/"
 
 cd /
 
 trap ":" INT QUIT TSTP
 
 argv0=${0##*/}
-source /etc/init.d/functions.sh || {
-	echo "${argv0}: Could not source /etc/init.d/functions.sh!" 1>&2
+source "${EPREFIX}"/etc/init.d/functions.sh || {
+	echo "${argv0}: Could not source ${EPREFIX}/etc/init.d/functions.sh!" 1>&2
 	exit 1
 }
 esyslog() { :; }
@@ -84,9 +87,9 @@ try_real_hard_to_find_CHOST() {
 	#
 
 	local varname=${1:-CHOST}
-	local conf=${ROOT}/etc/portage/make.conf
-	if [[ ! -e ${conf} && -e ${ROOT}/etc/make.conf ]] ; then
-		conf=${ROOT}/etc/make.conf
+	local conf=${EROOT}/etc/portage/make.conf
+	if [[ ! -e ${conf} && -e ${EROOT}/etc/make.conf ]] ; then
+		conf=${EROOT}/etc/make.conf
 	fi
 	local ret=$(source "${conf}" 2>/dev/null ; echo ${!varname})
 	if [[ -z ${ret} ]] ; then
@@ -109,8 +112,8 @@ try_real_hard_to_find_CHOST() {
 	#
 	# Then we try /etc/env.d/gcc/config-${CTARGET}
 	#
-	if [[ -s ${ROOT}/etc/env.d/gcc/config-${CTARGET} ]] ; then
-		ret=$(split_gcc_ver $(show_var CURRENT "${ROOT}"/etc/env.d/gcc/config-${CTARGET}))
+	if [[ -s ${EROOT}/etc/env.d/gcc/config-${CTARGET} ]] ; then
+		ret=$(split_gcc_ver $(show_var CURRENT "${EROOT}"/etc/env.d/gcc/config-${CTARGET}))
 		echo ${ret% *}
 	fi
 }
@@ -133,7 +136,7 @@ get_chost() {
 	if [[ -z ${CHOST} ]] ; then
 		eerror "${argv0}: Could not get portage CHOST!"
 		eerror "${argv0}: You should verify that CHOST is set in one of these places:"
-		eerror "${argv0}:  - ${ROOT}/etc/portage/make.conf"
+		eerror "${argv0}:  - ${EROOT}/etc/portage/make.conf"
 		eerror "${argv0}:  - active environment"
 		exit 1
 	fi
@@ -196,7 +199,7 @@ update_wrappers() {
 	# Find the bin wrapper
 	local wrapper
 	for wrapper in ${GENTOO_LIBDIR} lib lib64 lib32 lib ; do
-		wrapper="${ROOT}usr/${wrapper}/misc/gcc-config"
+		wrapper="${EROOT}usr/${wrapper}/misc/gcc-config"
 		[[ -e ${wrapper} ]] && break
 	done
 
@@ -222,7 +225,7 @@ update_wrappers() {
 	# new one does not.
 	for x in "${old_wrappers[@]}" ; do
 		has "${x}" "${new_wrappers[@]}" && continue
-		rm -f "${ROOT}usr/bin/${x}" "${ROOT}usr/bin/${CTARGET}-${x}"
+		rm -f "${EROOT}usr/bin/${x}" "${EROOT}usr/bin/${CTARGET}-${x}"
 	done
 
 	# For all toolchains, we want to create the fully qualified
@@ -259,19 +262,19 @@ update_wrappers() {
 
 		# Now do the actual wrapper copy with paths to the reference binary
 		if [[ -x ${ref} ]] ; then
-			atomic_cp "${wrapper}" "${ROOT}usr/bin" "${x}" "${ref}"
+			atomic_cp "${wrapper}" "${EROOT}usr/bin" "${x}" "${ref}"
 		else
 			ewarn "double insanity with ${x} and ${ref}"
 			# Make sure we have no stale wrappers
-			rm -f "${ROOT}usr/bin/${x}"
+			rm -f "${EROOT}usr/bin/${x}"
 		fi
 	done
 	# legacy cruft, make sure we dont leave it laying around #143205
-	rm -f "${ROOT}usr/bin/${CTARGET}-cc" "${ROOT}usr/bin"/{${CTARGET}-,}g{cc,++}{32,64}
+	rm -f "${EROOT}usr/bin/${CTARGET}-cc" "${EROOT}usr/bin"/{${CTARGET}-,}g{cc,++}{32,64}
 
 	# install the canonical cpp wrapper
 	if ! is_cross_compiler ; then
-		atomic_cp "${wrapper}" "${ROOT}lib" "cpp" "${ROOT}usr/bin/cpp"
+		atomic_cp "${wrapper}" "${EROOT}lib" "cpp" "${EROOT}usr/bin/cpp"
 	fi
 }
 
@@ -301,11 +304,11 @@ handle_split_usr() {
 	LDPATH=${LDPATH%%:*}
 
 	# If /usr isn't a sep mount, then don't bother with linking stuff.
-	if ln "${ROOT}/${LDPATH}/libgcc.a" "${ROOT}"/lib/.gcc.config.$$ 2>/dev/null ; then
-		rm -f "${ROOT}"/lib/.gcc.config.$$
-		if [[ -n $(find "${ROOT}"/lib*/lib{gcc_s,unwind}.so* 2>/dev/null) ]] ; then
+	if ln "${ROOT}/${LDPATH}/libgcc.a" "${EROOT}"/lib/.gcc.config.$$ 2>/dev/null ; then
+		rm -f "${EROOT}"/lib/.gcc.config.$$
+		if [[ -n $(find "${EROOT}"/lib*/lib{gcc_s,unwind}.so* 2>/dev/null) ]] ; then
 			# If we previously had stuff in /, make sure ldconfig gets re-run.
-			rm -f "${ROOT}"/lib*/lib{gcc_s,unwind}.so*
+			rm -f "${EROOT}"/lib*/lib{gcc_s,unwind}.so*
 			return 1
 		fi
 		return 0
@@ -317,7 +320,7 @@ handle_split_usr() {
 	# Only bother with this stuff for the native ABI.  We assume the user
 	# doesn't have critical binaries for non-native ABIs which is fair.
 	local gcclib
-	local libdir="${ROOT}${GENTOO_LIBDIR}"
+	local libdir="${EROOT}${GENTOO_LIBDIR}"
 	mkdir -p "${libdir}"/.gcc.config.new || return 0 # !?!?!
 	for gcclib in gcc_s unwind ; do
 		# This assumes that we always have the .so symlink,
@@ -343,7 +346,7 @@ switch_profile() {
 
 	# Make sure we have write access to the dirs.  Do not require `root`
 	# so that we work with prefix/cross/etc... setups that run as user.
-	[[ ! -w ${ROOT} ]] && die "need write access to ${ROOT}"
+	[[ ! -w ${EROOT} ]] && die "need write access to ${EROOT}"
 
 	if is_cross_compiler ; then
 		ebegin "Switching cross-compiler to ${CC_COMP}"
@@ -429,7 +432,7 @@ switch_profile() {
 		local x libdir pkgconfdir
 		local mver=${CC_COMP_VERSION:0:3}
 		for libdir in ${MULTIOSDIRS//:/ } ; do
-			pkgconfdir="${ROOT}/usr/lib/${libdir}/pkgconfig"
+			pkgconfdir="${EROOT}/usr/lib/${libdir}/pkgconfig"
 			for x in "" "-${mver}" ; do
 				x="${pkgconfdir}/libgcj${x}.pc"
 				if [[ -e ${pkgconfdir}/libgcj-${CC_COMP_VERSION}.pc ]] ; then
@@ -477,7 +480,7 @@ switch_profile() {
 		ewarn "If you intend to use the gcc from the new profile in an already"
 		ewarn "running shell, please remember to do:"
 		echo
-		ewarn "  . /etc/profile"
+		ewarn "  . ${EPREFIX}/etc/profile"
 		echo
 	fi
 
@@ -655,7 +658,7 @@ DOIT=""
 FORCE="no"
 
 CC_COMP=
-ENV_D="${ROOT}etc/env.d"
+ENV_D="${EROOT}etc/env.d"
 GCC_ENV_D="${ENV_D}/gcc"
 
 for x in "$@" ; do
@@ -786,7 +789,11 @@ if [[ -z ${CC_COMP} ]] ; then
 fi
 
 if [[ ${DOIT} != "get_current_profile" ]] ; then
-	GCC_LIB=$(get_lib_path | awk -F/ '{ print  "/"$2"/"$3"/"$4"/" }')
+	GCC_LIB=$(
+		get_lib_path | \
+			${SED} -e "s|${EPREFIX:-/}/*|/|g" | \
+			awk -F/ '{ print "/"$2"/"$3"/"$4"/" }'
+	)
 
 	# For people who insist on using funky version strings ("4.6.x"
 	# rather than "4.6.2"), allow them to manually specify it.
@@ -799,11 +806,11 @@ if [[ ${DOIT} != "get_current_profile" ]] ; then
 		CC_COMP_TARGET=${CC_COMP%-${CC_COMP_VERSION}*}
 	fi
 
-	if [[ ! -d ${ROOT}/${GCC_LIB}/${CC_COMP_TARGET}/${CC_COMP_VERSION} ]]; then
+	if [[ ! -d ${EROOT}/${GCC_LIB}/${CC_COMP_TARGET}/${CC_COMP_VERSION} ]]; then
 		CC_COMP_VERSION=${CC_COMP_VERSION%-*}
 	fi
 
-	if [[ ! -d ${ROOT}/${GCC_LIB}/${CC_COMP_TARGET}/${CC_COMP_VERSION} ]] || \
+	if [[ ! -d ${EROOT}/${GCC_LIB}/${CC_COMP_TARGET}/${CC_COMP_VERSION} ]] || \
 	   [[ ! -f ${GCC_ENV_D}/${CC_COMP} ]]
 	then
 		eerror "${argv0}: Profile does not exist or invalid setting for ${GCC_ENV_D}/${CC_COMP}" 1>&2

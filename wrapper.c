@@ -21,8 +21,12 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define GCC_CONFIG "/usr/bin/gcc-config"
-#define ENVD_BASE  "/etc/env.d/05gcc"
+#ifndef EPREFIX
+# define EPREFIX ""
+#endif
+
+#define GCC_CONFIG EPREFIX "/usr/bin/gcc-config"
+#define ENVD_BASE  EPREFIX "/etc/env.d/05gcc"
 
 #define ARRAY_SIZE(arr) (sizeof(arr)/sizeof(arr[0]))
 
@@ -146,7 +150,7 @@ static int find_target_in_envd(struct wrapper_data *data, int cross_compile)
 		/* for the sake of speed, we'll keep a symlink around for
 		 * the native compiler.  #190260
 		 */
-		snprintf(envd_file, sizeof(envd_file)-1, "/etc/env.d/gcc/.NATIVE");
+		snprintf(envd_file, sizeof(envd_file)-1, EPREFIX "/etc/env.d/gcc/.NATIVE");
 	} else {
 		char *ctarget, *end = strrchr(data->name, '-');
 		if (end == NULL)
@@ -289,8 +293,8 @@ int main(int argc, char *argv[])
 			data.name = wrapper_aliases[i].target;
 
 	/* What is the full name of our wrapper? */
-	data.fullname = xmalloc(strlen(data.name) + sizeof("/usr/bin/") + 1);
-	sprintf(data.fullname, "/usr/bin/%s", data.name);
+	data.fullname = xmalloc(strlen(data.name) + sizeof(EPREFIX "/usr/bin/") + 1);
+	sprintf(data.fullname, EPREFIX "/usr/bin/%s", data.name);
 
 	find_wrapper_target(&data);
 
