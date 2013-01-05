@@ -306,9 +306,9 @@ handle_split_usr() {
 	# If /usr isn't a sep mount, then don't bother with linking stuff.
 	if ln "${ROOT}/${LDPATH}/libgcc.a" "${EROOT}"/lib/.gcc.config.$$ 2>/dev/null ; then
 		rm -f "${EROOT}"/lib/.gcc.config.$$
-		if [[ -n $(find "${EROOT}"/lib*/lib{gcc_s,unwind}.so* 2>/dev/null) ]] ; then
+		if [[ -n $(find "${EROOT}"/lib*/lib{gcc_s,unwind}{.so*,*dylib} 2>/dev/null) ]] ; then
 			# If we previously had stuff in /, make sure ldconfig gets re-run.
-			rm -f "${EROOT}"/lib*/lib{gcc_s,unwind}.so*
+			rm -f "${EROOT}"/lib*/lib{gcc_s,unwind}{.so*,*dylib}
 			return 1
 		fi
 		return 0
