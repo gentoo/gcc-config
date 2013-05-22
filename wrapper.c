@@ -11,6 +11,10 @@
 # define USE_DEBUG 0
 #endif
 
+#ifndef _FILE_OFFSET_BITS
+# define _FILE_OFFSET_BITS 64	/* #471024 */
+#endif
+
 #include <errno.h>
 #include <libgen.h>
 #include <limits.h>
