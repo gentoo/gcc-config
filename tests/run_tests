@@ -44,7 +44,7 @@ cmp_log() {
 	args+=( -e "s|: line [0-9]*: |: |g" )
 	sed "${args[@]}" "${exp}" > "${exp}.tmp"
 	sed "${args[@]}" "${log}" > "${log}.tmp"
-	diff -u "${exp}.tmp" "${log}.tmp" > "${log}.diff"
+	diff -uw "${exp}.tmp" "${log}.tmp" > "${log}.diff"
 	ret=$?
 	rm "${exp}.tmp"
 	return ${ret}
