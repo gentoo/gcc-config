@@ -19,7 +19,7 @@ trap ":" INT QUIT TSTP
 
 argv0=${0##*/}
 functions_script="${EPREFIX}/lib/gentoo/functions.sh"
-source ${functions_script} || {
+source "${functions_script}" || {
 	echo "${argv0}: Could not source ${functions_script}!" 1>&2
 	exit 1
 }
