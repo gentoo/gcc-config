@@ -689,6 +689,19 @@ switch_profile() {
 
 	update_wrappers ${CTARGET}
 
+	# Update LTO plugin for GCC.  Supported as of binutils 2.25.
+	local BFD_PLUGINS_DIR
+	local LIBLTO_PLUGIN
+	LIBLTO_PLUGIN="${EROOT}usr/libexec/gcc/${CTARGET}/${CC_COMP_VERSION}/liblto_plugin.so"
+	if is_cross_compiler; then
+		BFD_PLUGINS_DIR="${EROOT}usr/${CHOST}/${CTARGET}/binutils-bin/lib/bfd-plugins"
+	else
+		BFD_PLUGINS_DIR="${EROOT}usr/${CHOST}/binutils-bin/lib/bfd-plugins"
+	fi
+	ewarn "Updating LTO plugin symlink in ${BFD_PLUGINS_DIR}"
+	mkdir -p "${BFD_PLUGINS_DIR}"
+	ln -sf "${LIBLTO_PLUGIN}" "${BFD_PLUGINS_DIR}"
+
 	if [[ ${ROOT} == "/" ]] && \
 	   [[ ${FORCE} == "yes" || ${envd_changed} -gt 0 ]]
 	then
