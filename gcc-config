@@ -693,16 +693,18 @@ switch_profile() {
 	   [[ ${FORCE} == "yes" || ${envd_changed} -gt 0 ]]
 	then
 		# in case python is broken ...
-		if [[ -z ${EPREFIX} ]] && ! env-update ; then
+		if ! env-update ; then
 			echo ""
 			ewarn "env-update failed to work properly; making sure ld.so.conf paths"
 			ewarn "are setup properly.  Please rerun gcc-config with the -f option."
 			echo ""
-			if [[ ! -d /etc/ld.so.conf.d ]] ; then
-				show_var LDPATH "${ROOT}"/etc/env.d/05gcc-${CTARGET} \
-					| ${SED} -e 's|:|\n|g' >> /etc/ld.so.conf
+			if [[ -z ${EPREFIX} ]] ; then
+				if [[ ! -d /etc/ld.so.conf.d ]] ; then
+					show_var LDPATH "${ROOT}"/etc/env.d/05gcc-${CTARGET} \
+						| ${SED} -e 's|:|\n|g' >> /etc/ld.so.conf
+				fi
+				ldconfig
 			fi
-			ldconfig
 		fi
 	else
 		envd_changed=0
