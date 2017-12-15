@@ -1,0 +1,13 @@
+certificate version 0.1
+pusher Fabian Groffen <grobian@gentoo.org> 1513326801 +0100
+pushee git+ssh://git.gentoo.org/proj/gcc-config
+nonce 1513326801-d89b8a2746f19ff7c518
+
+db595876a93d194b2ac98c9e1804d0772edb1635 748d20380aa1b27149dc1b80c7eaf15fde7c6aba refs/heads/master
+-----BEGIN PGP SIGNATURE-----
+
+iHEEABEKADEWIQSDHIpHdkhfn9Ptmh5fdfYHxcdOiQUCWjOI0hMcZ3JvYmlhbkBn
+ZW50b28ub3JnAAoJEF919gfFx06JVIAAn0apqG2N1f6XQCmcaLtdtlH3NXhXAJ0a
+o3TRKqUKbillIderuRQt9T+/eA==
+=nXTA
+-----END PGP SIGNATURE-----
