@@ -698,7 +698,7 @@ switch_profile() {
 	else
 		BFD_PLUGINS_DIR="${EROOT}usr/${CHOST}/binutils-bin/lib/bfd-plugins"
 	fi
-	ewarn "Updating LTO plugin symlink in ${BFD_PLUGINS_DIR}"
+	einfo "Updating LTO plugin symlink in ${BFD_PLUGINS_DIR}"
 	mkdir -p "${BFD_PLUGINS_DIR}"
 	ln -sf "${LIBLTO_PLUGIN}" "${BFD_PLUGINS_DIR}"
 
