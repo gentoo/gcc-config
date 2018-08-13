@@ -3,7 +3,6 @@
 # Avoid bash localization of error messages
 export LC_ALL=C
 
-. /lib/gentoo/functions.sh 2>/dev/null
 ebegin() { printf '%s*%s %s ... ' "${GOOD}" "${NORMAL}" "$*" ; }
 eend() {
 	local r=${1:-0}
@@ -16,7 +15,6 @@ eend() {
 	return $r
 }
 die() { echo "$*" 1>&2; exit 1; }
-eval $(eval_ecolors 2>/dev/null)
 
 vars=( CHOST GCC_CONFIG ROOT TROOT NOCOLOR RC_NOCOLOR )
 unset ${vars[@]}
