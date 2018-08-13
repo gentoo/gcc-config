@@ -281,6 +281,7 @@ static void modify_path(struct wrapper_data *data)
 int main(int argc, char *argv[])
 {
 	struct wrapper_data data;
+	(void)argc; /* unused variable */
 
 	memset(&data, 0, sizeof(data));
 
