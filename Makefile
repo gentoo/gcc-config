@@ -13,7 +13,7 @@ BINDIR = $(PREFIX)/bin
 ESELECTDIR = $(PREFIX)/share/eselect/modules
 SUBLIBDIR = lib
 LIBDIR = $(PREFIX)/$(SUBLIBDIR)
-LIBEXECDIR = $(LIBDIR)/misc
+LIBEXECDIR = $(LIBDIR)/$(PN)
 
 MKDIR_P = mkdir -p -m 755
 INSTALL_EXE = install -m 755
@@ -35,7 +35,7 @@ clean:
 
 install: all
 	$(MKDIR_P) $(DESTDIR)$(BINDIR) $(DESTDIR)$(LIBEXECDIR) $(DESTDIR)$(ESELECTDIR)
-	$(INSTALL_EXE) wrapper $(DESTDIR)$(LIBEXECDIR)/$(PN)
+	$(INSTALL_EXE) wrapper $(DESTDIR)$(LIBEXECDIR)/wrapper
 	$(INSTALL_EXE) .gcc-config $(DESTDIR)$(BINDIR)/gcc-config
 	$(INSTALL_DATA) gcc.eselect $(DESTDIR)$(ESELECTDIR)
 

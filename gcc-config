@@ -198,9 +198,9 @@ update_wrappers() {
 	local x CTARGET=$1
 
 	# Find the bin wrapper
-	local wrapper
-	for wrapper in ${GENTOO_LIBDIR} lib lib64 lib32 lib ; do
-		wrapper="${EROOT}usr/${wrapper}/misc/gcc-config"
+	local libdir wrapper
+	for libdir in ${GENTOO_LIBDIR} lib lib64 lib32 lib ; do
+		wrapper="${EROOT}usr/${libdir}/gcc-config/wrapper"
 		[[ -e ${wrapper} ]] && break
 	done
 
