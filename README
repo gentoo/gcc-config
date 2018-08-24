@@ -6,19 +6,17 @@ Gentoo allows switching gcc as system runs via gcc-config:
     $ gcc-config x86_64-pc-linux-gnu-7.2.0
 
 Ideally changes should be visible instantly and atomically
-without shell restart. Practically see TODOs and BUGs on PATH/ROOTPATH.
+without shell restart.
 
 Files, variables, things.
 -------------------------
 
-- Wrappers (copies of /usr/$(libexec)/gcc-config/wrapper)
-    /usr/bin/gcc
-    /usr/bin/g++
-    /usr/bin/${CTARGET}-gcc
+- Wrappers (symlinks to compiler binary like /usr/${CTARGET}/gcc-bin/${GCC_VERSION}/gcc)
+    /usr/bin/gcc (native)
+    /usr/bin/g++ (native)
+    /usr/bin/${CTARGET}-gcc (native and cross)
     ...
     (all files from /usr/${CTARGET}/gcc-bin/$GCC_VERSION/*)
-
-      Wrapper reads env config and re-execs binary from `GCC_PATH`.
 
       See `gcc-config` script for wrapping details.
 
@@ -39,7 +37,6 @@ Files, variables, things.
           GCC_PATH="/usr/x86_64-pc-linux-gnu/gcc-bin/8.1.0"
 
       Used by gcc-config to generate wrappers and 05gcc- env.d files.
-      Used by wrapper to extract GCC_PATH and re-exec().
 
 - gcc env.d compiler entries (provided by gcc-config)
 
@@ -47,8 +44,6 @@ Files, variables, things.
 
       Populates paths for native-compilers
 
-        PATH="/usr/x86_64-pc-linux-gnu/gcc-bin/8.2.0"
-        ROOTPATH="/usr/x86_64-pc-linux-gnu/gcc-bin/8.2.0"
         GCC_SPECS=""
         MANPATH="/usr/share/gcc-data/x86_64-pc-linux-gnu/8.2.0/man"
         INFOPATH="/usr/share/gcc-data/x86_64-pc-linux-gnu/8.2.0/info"
@@ -57,60 +52,16 @@ Files, variables, things.
 
     /etc/env.d/05gcc-${CTARGET} (cross)
 
-      Populates paths for cross-compilers
+      Empty.
 
-        PATH="/usr/x86_64-pc-linux-gnu/powerpc64le-unknown-linux-gnu/gcc-bin/7.3.0"
-        ROOTPATH="/usr/x86_64-pc-linux-gnu/powerpc64le-unknown-linux-gnu/gcc-bin/7.3.0"
-
-      Used by wrapper to extract PATH and re-exec().
-      Used by env-update to populate PATH (TODO: remove PATH population).
-
-How does gcc-config work?
--------------------------
-
-/usr/bin/gcc (or /usr/bin/<tool>) is a wrapper (wrapper.c).
-gcc-config allows runtime gcc switch via level of indirection.
-
-Tool name is ${CTARGET}-<tool> or <tool>. TODO: doesn't it break
-on ${CTARGET}-<tool>-<version>? Doesn't ${CTARGET} get misdetected?
-
-Today's resolution order is the following:
-
-1. Searches PATH for <tool> and reexecute if found. Some
-   target paths are ignored:
-   - itself (/usr/bin/<tool>) is ignored to avoid recursion
-   - */gcc-bin/* (/usr/${CHOST}/${CTARGET}/gcc-bin/7.3.0) is ignored
-     as those should precede in PATH to avoid wrapping entirely or be
-     selected via gcc-config.
-2. If [1.] failed search for /etc/env.d/: /etc/env.d/gcc/.NATIVE (native compiler),
-   /etc/env.d/05gcc-${CTARGET} (cross-compiler).
-
-   There GCC_PATH= (native) or PATH= (cross) directory entry is searched.
-
-   Usually it's GCC_PATH="${EPREFIX}/usr/${CHOST}/gcc-bin/<gcc-version>" (native)
-   or GCC_PATH="${EPREFIX}/usr/${CHOST}/${CTARGET}/gcc-bin/<gcc-version>" (cross)
-
-3. If [2.] failed run 'ROOT= gcc-config --get-bin-path' and use it's output.
-
-4. Prepend path fetched from above to PATH environment variable and re-exec().
-
-5. Done
-
-`gcc-config` script maintains binaries in `/usr/bin/` to make the above model work.
-
-To make compiler switchable in active shell `/usr/bin/` path must precede
-'/usr/${CHOST}/gcc-bin/<gcc-version>'. Otherwise wrapper is skipped.
+      Until Aug 2018 used to contain paths for cross-compilers.
+      To be removed eventually.
 
 TODOs
 -----
 
 - Write proper `gcc-config` manpage off this readme to be more discoverable.
 
-- Make /usr/bin/<tool> a symlink of /usr/$(libexec)/gcc-config/wrapper,
-  not a file copy. This will make the fact that Gentoo uses wrappers more obvious.
-  It's essential to know for people using ccache cache or similar.
+- Figure out symlink ownership story. Today symlinks don't belong to any package.
 
-- Move /etc/env.d/05gcc-${CTARGET} and /etc/env.d/04gcc-${CTARGET} after
-  /usr/bin PATH injection to restore gcc-config wrapping.
-
-  See https://bugs.gentoo.org/255695 for some details.
+  See https://bugs.gentoo.org/626606

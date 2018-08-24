@@ -18,10 +18,10 @@ for (( i = 1; i < 4; ++i )) ; do
 	esac
 
 	for b in "${do_want[@]}" ; do
-		[[ -e usr/bin/${b} ]] || exit 1
+		[[ -L usr/bin/${b} ]] || exit 1
 	done
 	for b in "${dont_want[@]}" ; do
-		[[ -e usr/bin/${b} ]] && exit 1
+		[[ -L usr/bin/${b} ]] && exit 1
 	done
 	[[ -e etc/env.d/04gcc-${CHOST} ]] || exit 1
 done

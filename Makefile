@@ -13,16 +13,15 @@ BINDIR = $(PREFIX)/bin
 ESELECTDIR = $(PREFIX)/share/eselect/modules
 SUBLIBDIR = lib
 LIBDIR = $(PREFIX)/$(SUBLIBDIR)
-LIBEXECDIR = $(LIBDIR)/$(PN)
 
 MKDIR_P = mkdir -p -m 755
 INSTALL_EXE = install -m 755
 INSTALL_DATA = install -m 644
 
-all: .gcc-config wrapper
+all: .gcc-config
 
 clean:
-	rm -f .gcc-config wrapper *.o core
+	rm -f .gcc-config
 
 .gcc-config: gcc-config
 	sed \
@@ -34,8 +33,7 @@ clean:
 	chmod a+rx $@
 
 install: all
-	$(MKDIR_P) $(DESTDIR)$(BINDIR) $(DESTDIR)$(LIBEXECDIR) $(DESTDIR)$(ESELECTDIR)
-	$(INSTALL_EXE) wrapper $(DESTDIR)$(LIBEXECDIR)/wrapper
+	$(MKDIR_P) $(DESTDIR)$(BINDIR) $(DESTDIR)$(ESELECTDIR)
 	$(INSTALL_EXE) .gcc-config $(DESTDIR)$(BINDIR)/gcc-config
 	$(INSTALL_DATA) gcc.eselect $(DESTDIR)$(ESELECTDIR)
 

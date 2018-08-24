@@ -1,6 +1,4 @@
-a.out
 *~
-*.o
 
 *.diff
 *.patch
@@ -10,4 +8,3 @@ a.out
 /gcc-config-*.tar.*
 
 /.gcc-config
-/wrapper
