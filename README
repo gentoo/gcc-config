@@ -6,7 +6,7 @@ Gentoo allows switching gcc as system runs via gcc-config:
     $ gcc-config x86_64-pc-linux-gnu-7.2.0
 
 Ideally changes should be visible instantly and atomically
-without shell restart. Practially see TODOs and BUGs on PATH/ROOTPATH.
+without shell restart. Practically see TODOs and BUGs on PATH/ROOTPATH.
 
 Files, variables, things.
 -------------------------
@@ -27,7 +27,7 @@ Files, variables, things.
     /etc/env.d/gcc/.NATIVE -> x86_64-pc-linux-gnu-8.1.0 (link to target config)
     /etc/env.d/gcc/x86_64-pc-linux-gnu-8.1.0
 
-      Contains variables that describe tolchain layout:
+      Contains variables that describe toolchain layout:
 
           LDPATH="/usr/lib/gcc/x86_64-pc-linux-gnu/8.1.0"
           MANPATH="/usr/share/gcc-data/x86_64-pc-linux-gnu/8.1.0/man"
