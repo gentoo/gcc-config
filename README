@@ -41,9 +41,21 @@ Files, variables, things.
       Used by gcc-config to generate wrappers and 05gcc- env.d files.
       Used by wrapper to extract GCC_PATH and re-exec().
 
-- gcc env.d cross-compiler entries (provided by gcc-config)
+- gcc env.d compiler entries (provided by gcc-config)
 
-    /etc/env.d/05gcc-${CTARGET}
+    /etc/env.d/04gcc-${CTARGET} (native)
+
+      Populates paths for native-compilers
+
+        PATH="/usr/x86_64-pc-linux-gnu/gcc-bin/8.2.0"
+        ROOTPATH="/usr/x86_64-pc-linux-gnu/gcc-bin/8.2.0"
+        GCC_SPECS=""
+        MANPATH="/usr/share/gcc-data/x86_64-pc-linux-gnu/8.2.0/man"
+        INFOPATH="/usr/share/gcc-data/x86_64-pc-linux-gnu/8.2.0/info"
+
+      Used by env-update to populate PATH and more (TODO: remove PATH population).
+
+    /etc/env.d/05gcc-${CTARGET} (cross)
 
       Populates paths for cross-compilers
 
@@ -51,6 +63,7 @@ Files, variables, things.
         ROOTPATH="/usr/x86_64-pc-linux-gnu/powerpc64le-unknown-linux-gnu/gcc-bin/7.3.0"
 
       Used by wrapper to extract PATH and re-exec().
+      Used by env-update to populate PATH (TODO: remove PATH population).
 
 How does gcc-config work?
 -------------------------
