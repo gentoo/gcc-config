@@ -286,6 +286,11 @@ handle_split_usr() {
 	# but on other systems (arm/mips/etc...), this is quite critical.
 	# http://bugs.gentoo.org/60190
 	#
+	# Note: libunwind.so is is a DT_NEEDED dependency only on ia64 systems
+	# where libunwind.so.7 is provided by gcc itself, see:
+	#    https://bugs.gentoo.org/667020
+	#    https://bugs.gentoo.org/693252
+	#
 	# The funky move magic is required for proper updating of in-use files.
 
 	# Gentoo Prefix systems don't "boot", so no need to handle split-/usr
