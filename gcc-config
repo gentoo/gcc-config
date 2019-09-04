@@ -287,7 +287,10 @@ handle_split_usr() {
 	# http://bugs.gentoo.org/60190
 	#
 	# The funky move magic is required for proper updating of in-use files.
-	#
+
+	# Gentoo Prefix systems don't "boot", so no need to handle split-/usr
+	[[ -n ${EPREFIX} ]] && return 0
+
 	# We use the same ordering logic as mentioned in the MY_LDPATH setup.
 	# We get the libs from the latest version available.
 	local LDPATH
@@ -305,9 +308,6 @@ handle_split_usr() {
 		fi
 		return 0
 	fi
-
-	# Gentoo Prefix systems don't "boot", so no need to handle split-/usr
-	[[ -n ${EPREFIX} ]] && return 0
 
 	# Only bother with this stuff for the native ABI.  We assume the user
 	# doesn't have critical binaries for non-native ABIs which is fair.
