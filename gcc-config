@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 1999-2012 Gentoo Foundation
+# Copyright 2002-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 # Format of /etc/env.d/gcc/:
@@ -286,7 +286,7 @@ handle_split_usr() {
 	# but on other systems (arm/mips/etc...), this is quite critical.
 	# http://bugs.gentoo.org/60190
 	#
-	# Note: libunwind.so is is a DT_NEEDED dependency only on ia64 systems
+	# Note: libunwind.so.7 is a DT_NEEDED dependency only on ia64 systems
 	# where libunwind.so.7 is provided by gcc itself, see:
 	#    https://bugs.gentoo.org/667020
 	#    https://bugs.gentoo.org/693252
@@ -306,12 +306,15 @@ handle_split_usr() {
 	# If /usr isn't a sep mount, then don't bother with linking stuff.
 	if ln "${ROOT}/${LDPATH}/libgcc.a" "${EROOT}"/lib/.gcc.config.$$ 2>/dev/null ; then
 		rm -f "${EROOT}"/lib/.gcc.config.$$
-		if [[ -n $(find "${EROOT}"/lib*/lib{gcc_s,unwind}{.so*,*dylib} 2>/dev/null) ]] ; then
+		local lib old_libs=0 saved_nullglob=$(shopt -p nullglob)
+		shopt -s nullglob
+		for lib in "${EROOT}"/lib*/libgcc_s{.so*,*dylib} "${EROOT}"/lib*/libunwind.so.7* ; do
 			# If we previously had stuff in /, make sure ldconfig gets re-run.
-			rm -f "${EROOT}"/lib*/lib{gcc_s,unwind}{.so*,*dylib}
-			return 1
-		fi
-		return 0
+			rm -f "${lib}"
+			old_libs=1
+		done
+		${saved_nullglob}
+		return ${old_libs}
 	fi
 
 	# Only bother with this stuff for the native ABI.  We assume the user
