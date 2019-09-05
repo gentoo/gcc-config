@@ -28,9 +28,7 @@ has() { [[ " ${*:2} " == *" $1 "* ]]; }
 die() { eerror "${argv0}: $*"; exit 1; }
 umask 022
 
-# *BSD are plain stupid ... copy a GNU extension but don't just copy it,
-# change it so it works differently.  Wish Darwin did selective evolution
-# on software developers.
+# *BSD sed does not work as-is, use GNU sed. TODO: find details.
 SED=$(type -P gsed)
 : ${SED:=$(type -P sed)}
 
