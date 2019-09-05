@@ -2,9 +2,9 @@
 # Copyright 2002-2019 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
-# Format of /etc/env.d/gcc/:
-#  config-TARGET:	CURRENT=version for TARGET
-#  TARGET-VER:		has a TARGET and VER variable
+# Format of /etc/env.d/gcc/ contents:
+#  config-<TARGET>:	CURRENT=<TARGET>-<VER>
+#  <TARGET>-<VER>:	has gcc-specific variables (provided by sys-devel/gcc)
 
 : ${ROOT:=/}
 [[ ${ROOT} != */ ]] && ROOT="${ROOT}/"
