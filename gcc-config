@@ -696,7 +696,7 @@ switch_profile() {
 
 	eend 0
 
-	# Not needed since Aug 2018. Can be removed later (say, in a year).
+	# This is needed mainly for MANPATH and INFOPATH updates.
 	if [[ ${envd_changed} -ne 0 ]] ; then
 		echo
 		ewarn "If you intend to use the gcc from the new profile in an already"
