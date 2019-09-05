@@ -145,26 +145,6 @@ is_cross_compiler() {
 	[[ ${CC_COMP/${CHOST}} == ${CC_COMP} ]]
 }
 
-convert_profile_paths() {
-	# Older gcc's used PATH= and ROOTPATH= in the env.d files.
-	# Newer one's only use GCC_PATH=.  Convert old to new here.
-	cp -p "${GCC_ENV_D}/${CC_COMP}" "${GCC_ENV_D}/${CC_COMP}.gcc-config-ref" || return 1
-	GCC_PATH=$(
-		unset GCC_PATH PATH ROOTPATH
-		source "${GCC_ENV_D}/${CC_COMP}"
-		echo ${GCC_PATH:-${PATH:-${ROOTPATH}}}
-	)
-	${SED} -i \
-		-e '/^PATH=/d' \
-		-e '/^ROOTPATH=/d' \
-		-e '/^GCC_PATH=/d' \
-		"${GCC_ENV_D}/${CC_COMP}" || return 1
-	echo "GCC_PATH=\"${GCC_PATH}\"" >> "${GCC_ENV_D}/${CC_COMP}" || return 1
-	touch -r "${GCC_ENV_D}/${CC_COMP}.gcc-config-ref" "${GCC_ENV_D}/${CC_COMP}" || return 1
-	rm -f "${GCC_ENV_D}/${CC_COMP}.gcc-config-ref" || return 1
-	return 0
-}
-
 # Usage: atomic_ln <source file> <destination dir> <destination file name>
 atomic_ln() {
 	local src=$1 dst=$2 dstfile=$3 tmp
@@ -583,10 +563,6 @@ switch_profile() {
 		ebegin "Switching cross-compiler to ${CC_COMP}"
 	else
 		ebegin "Switching native-compiler to ${CC_COMP}"
-	fi
-
-	if egrep -q '^(PATH|ROOTPATH)=' "${GCC_ENV_D}/${CC_COMP}" ; then
-		convert_profile_paths "${GCC_ENV_D}/${CC_COMP}" || return 1
 	fi
 
 	# Setup things properly again for this profile
