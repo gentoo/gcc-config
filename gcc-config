@@ -145,6 +145,37 @@ is_cross_compiler() {
 	[[ ${CC_COMP/${CHOST}} == ${CC_COMP} ]]
 }
 
+is_same_mountpoint() {
+	local file1=$1 file2=$2
+
+	if type -P findmnt > /dev/null ; then
+		local file1_mountpoint=$(findmnt -n -o TARGET -T "${file1}")
+		local file2_mountpoint=$(findmnt -n -o TARGET -T "${file2}")
+
+		[[ ${file1_mountpoint} == ${file2_mountpoint} ]]
+		return
+	else
+		local file1_check_file file2_check_file result
+		if [[ -d ${file1} ]] ; then
+			file1_check_file=${file1}/.gcc.config.mountpoint_check_file1.$$
+		else
+			file1_check_file=${file1%/*}/.gcc.config.mountpoint_check_file1.$$
+		fi
+		if [[ -d ${file2} ]] ; then
+			file2_check_file=${file2}/.gcc.config.mountpoint_check_file2.$$
+		else
+			file2_check_file=${file2%/*}/.gcc.config.mountpoint_check_file2.$$
+		fi
+
+		rm -f "${file1_check_file}" "${file2_check_file}"
+		touch "${file1_check_file}"
+		ln "${file1_check_file}" "${file2_check_file}" 2> /dev/null
+		result=$?
+		rm -f "${file1_check_file}" "${file2_check_file}"
+		return ${result}
+	fi
+}
+
 # Usage: atomic_ln <source file> <destination dir> <destination file name>
 atomic_ln() {
 	local src=$1 dst=$2 dstfile=$3 tmp
@@ -277,13 +308,11 @@ handle_split_usr() {
 	# We use the same ordering logic as mentioned in the MY_LDPATH setup.
 	# We get the libs from the latest version available.
 	local LDPATH
-
 	eval $(grep -h '^LDPATH=' "${GCC_ENV_D}"/${CHOST}-* | tail -1)
 	LDPATH=${LDPATH%%:*}
 
-	# If /usr isn't a sep mount, then don't bother with linking stuff.
-	if ln "${ROOT}/${LDPATH}/libgcc.a" "${EROOT}"/lib/.gcc.config.$$ 2>/dev/null ; then
-		rm -f "${EROOT}"/lib/.gcc.config.$$
+	# If GCC directory is not in separate mountpoint than /lib, then do not bother with copying libraries to /lib.
+	if is_same_mountpoint "${EROOT}/lib" "${ROOT}/${LDPATH}" ; then
 		local lib old_libs=0 saved_nullglob=$(shopt -p nullglob)
 		shopt -s nullglob
 		for lib in "${EROOT}"/lib*/libgcc_s{.so*,*dylib} "${EROOT}"/lib*/libunwind.so.7* ; do
