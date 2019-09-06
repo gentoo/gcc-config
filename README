@@ -22,7 +22,6 @@ Files, variables, things.
 
 - private gcc configs (provided by `toolchain.eclass`, gcc ebuilds)
 
-    /etc/env.d/gcc/.NATIVE -> x86_64-pc-linux-gnu-8.1.0 (link to target config)
     /etc/env.d/gcc/x86_64-pc-linux-gnu-8.1.0
 
       Contains variables that describe toolchain layout:
@@ -54,8 +53,14 @@ Files, variables, things.
 
       Empty.
 
-      Until Aug 2018 used to contain paths for cross-compilers.
+      Before Aug 2018 used to contain paths for cross-compilers.
       To be removed eventually.
+
+    /etc/env.d/gcc/.NATIVE -> x86_64-pc-linux-gnu-8.1.0 (link to target config)
+
+      Link to current native toolchain.
+
+    Before Aug 2018 was used by gcc binary wrapper. Not used nowadays.
 
 TODOs
 -----
