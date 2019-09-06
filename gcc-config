@@ -311,7 +311,8 @@ handle_split_usr() {
 	eval $(grep -h '^LDPATH=' "${GCC_ENV_D}"/${CHOST}-* | tail -1)
 	LDPATH=${LDPATH%%:*}
 
-	# If GCC directory is not in separate mountpoint than /lib, then do not bother with copying libraries to /lib.
+	# If GCC directory is not in separate mountpoint than /lib,
+	# then do not bother with copying libraries to /lib.
 	if is_same_mountpoint "${EROOT}/lib" "${ROOT}/${LDPATH}" ; then
 		local lib old_libs=0 saved_nullglob=$(shopt -p nullglob)
 		shopt -s nullglob
