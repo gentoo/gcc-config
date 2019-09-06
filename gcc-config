@@ -1017,20 +1017,6 @@ get_chost
 	&& : ${CTARGET:=${CC_COMP:-${CHOST}}} \
 	|| : ${CTARGET:=${CHOST}}
 
-# Do migration of old files
-if [[ -e ${GCC_ENV_D}/config ]] ; then
-	(
-	unset CURRENT
-	. "${GCC_ENV_D}"/config
-	if [[ ${CURRENT} == ${CTARGET}-* ]] ; then
-		mv "${GCC_ENV_D}"/config "${GCC_ENV_D}"/config-${CTARGET} || exit 1
-	else
-		# who knows; force a refresh by punting it
-		rm -f "${GCC_ENV_D}"/config || exit 1
-	fi
-	) || die "could not get rid of old ${GCC_ENV_D}/config"
-fi
-
 if [[ -z ${CC_COMP} ]] ; then
 	CC_COMP=$(get_current_profile)
 	if [[ $? -ne 0 ]] ; then
