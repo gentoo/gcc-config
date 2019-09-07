@@ -1,9 +1,5 @@
 EPREFIX ?=
 
-CFLAGS ?= -O2 -g
-CFLAGS += -Wall -Wextra
-CPPFLAGS += '-DEPREFIX="$(EPREFIX)"'
-
 PN = gcc-config
 PV = git
 P = $(PN)-$(PV)
