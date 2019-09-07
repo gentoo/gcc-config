@@ -1,12 +1,21 @@
 What is gcc-config?
 -------------------
 
-Gentoo allows switching gcc as system runs via gcc-config:
+gcc-config allows Gentoo users to switch active gcc safely
+and allows querying facts about installed toolchains.
+
+To switch active gcc while system runs:
     $ gcc-config x86_64-pc-linux-gnu-8.1.0
     $ gcc-config x86_64-pc-linux-gnu-7.2.0
 
-Ideally changes should be visible instantly and atomically
-without shell restart.
+    Ideally changes should be visible instantly and atomically
+    without shell restart.
+
+To query where real gcc binaries are hiding:
+    $ gcc-config -B $(gcc-config -c)
+
+To parse a profile into TARGET and toolchain version:
+    $ gcc-config -S sparc64-unknown-linux-gnu-9.2.0
 
 Files, variables, things.
 -------------------------
