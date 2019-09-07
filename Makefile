@@ -10,7 +10,9 @@ P = $(PN)-$(PV)
 
 PREFIX = $(EPREFIX)/usr
 BINDIR = $(PREFIX)/bin
+DOCDIR = $(PREFIX)/share/doc/$(P)
 ESELECTDIR = $(PREFIX)/share/eselect/modules
+
 SUBLIBDIR = lib
 LIBDIR = $(PREFIX)/$(SUBLIBDIR)
 
@@ -33,9 +35,10 @@ clean:
 	chmod a+rx $@
 
 install: all
-	$(MKDIR_P) $(DESTDIR)$(BINDIR) $(DESTDIR)$(ESELECTDIR)
+	$(MKDIR_P) $(DESTDIR)$(BINDIR) $(DESTDIR)$(ESELECTDIR) $(DESTDIR)$(DOCDIR)
 	$(INSTALL_EXE) .gcc-config $(DESTDIR)$(BINDIR)/gcc-config
 	$(INSTALL_DATA) gcc.eselect $(DESTDIR)$(ESELECTDIR)
+	$(INSTALL_DATA) README $(DESTDIR)$(DOCDIR)
 
 test check: .gcc-config
 	cd tests && ./run_tests
