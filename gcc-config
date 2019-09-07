@@ -324,6 +324,7 @@ handle_split_usr() {
 		# Can be removed in 2021.
 		for lib in "${EROOT}"/lib*/libgcc_s{.so*,*dylib} "${EROOT}"/lib*/libunwind.so.7* ; do
 			# If we previously had stuff in /, make sure ldconfig gets re-run.
+			einfo "Removing '${lib}'"
 			rm -f "${lib}"
 			old_libs=1
 		done
@@ -332,6 +333,7 @@ handle_split_usr() {
 			"${EROOT}"/lib*/"${GENTOO_GCC_BACKUP_DIR}"/libgcc_s.so.* \
 			"${EROOT}"/lib*/"${GENTOO_GCC_BACKUP_DIR}"/libunwind.so.* ; do
 			# If we previously had stuff in /, make sure ldconfig gets re-run.
+			einfo "Removing '${lib}'"
 			rm -f "${lib}"
 			old_libs=1
 		done
@@ -350,6 +352,7 @@ handle_split_usr() {
 		# but for now, that should be safe ...
 		for gcclib in "${ROOT}${LDPATH}"/lib${gcclib}.so.* ; do
 			[[ -e ${gcclib} ]] || continue
+			einfo "Backing up '${gcclib}' to '${libdir}"
 			cp -pP "${gcclib}" "${libdir}"/.gcc.config.new/
 			# no need to sanity `rm` this as the `mv` should take care
 			# of it.  we also need this step to be completely atomic
