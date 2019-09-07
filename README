@@ -49,13 +49,6 @@ Files, variables, things.
 
       Used by env-update to populate PATH and more (TODO: remove PATH population).
 
-    /etc/env.d/05gcc-${CTARGET} (cross)
-
-      Empty.
-
-      Before Aug 2018 used to contain paths for cross-compilers.
-      To be removed eventually.
-
 TODOs
 -----
 
