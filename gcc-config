@@ -28,7 +28,7 @@ has() { [[ " ${*:2} " == *" $1 "* ]]; }
 die() { eerror "${argv0}: $*"; exit 1; }
 umask 022
 
-# *BSD sed does not work as-is, use GNU sed. TODO: find details.
+# *BSD SED does not work as-is, use GNU SED. TODO: find details.
 SED=$(type -P gsed)
 : ${SED:=$(type -P sed)}
 
