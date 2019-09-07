@@ -42,6 +42,9 @@ PV="@PV@"
 GENTOO_LIBDIR="@GENTOO_LIBDIR@"
 [[ ${GENTOO_LIBDIR} == @*@ ]] && GENTOO_LIBDIR="lib"
 
+GENTOO_GCC_BACKUP_DIR="@GENTOO_GCC_BACKUP_DIR@"
+[[ ${GENTOO_GCC_BACKUP_DIR} == @*@ ]] && GENTOO_GCC_BACKUP_DIR="gcc-backup"
+
 usage() {
 	cat <<-EOF
 	Usage: gcc-config [options] [CC Profile]
@@ -316,11 +319,23 @@ handle_split_usr() {
 	if is_same_mountpoint "${EROOT}/lib" "${ROOT}/${LDPATH}" ; then
 		local lib old_libs=0 saved_nullglob=$(shopt -p nullglob)
 		shopt -s nullglob
+
+		# We relied on these copies until Sept 2019.
+		# Can be removed in 2021.
 		for lib in "${EROOT}"/lib*/libgcc_s{.so*,*dylib} "${EROOT}"/lib*/libunwind.so.7* ; do
 			# If we previously had stuff in /, make sure ldconfig gets re-run.
 			rm -f "${lib}"
 			old_libs=1
 		done
+
+		for lib in \
+			"${EROOT}"/lib*/"${GENTOO_GCC_BACKUP_DIR}"/libgcc_s.so.* \
+			"${EROOT}"/lib*/"${GENTOO_GCC_BACKUP_DIR}"/libunwind.so.* ; do
+			# If we previously had stuff in /, make sure ldconfig gets re-run.
+			rm -f "${lib}"
+			old_libs=1
+		done
+
 		${saved_nullglob}
 		return ${old_libs}
 	fi
@@ -328,7 +343,7 @@ handle_split_usr() {
 	# Only bother with this stuff for the native ABI.  We assume the user
 	# doesn't have critical binaries for non-native ABIs which is fair.
 	local gcclib
-	local libdir="${EROOT}${GENTOO_LIBDIR}"
+	local libdir="${EROOT}/${GENTOO_LIBDIR}/${GENTOO_GCC_BACKUP_DIR}"
 	mkdir -p "${libdir}"/.gcc.config.new || return 0 # !?!?!
 	for gcclib in gcc_s unwind ; do
 		# This assumes that we always have the .so symlink,

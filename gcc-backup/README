@@ -1,0 +1,41 @@
+What is gcc-backup
+==================
+
+gcc-backup is a directory to backup critical runtime
+libraries used by gcc to link in code too big to inline it
+from code generator.
+
+See gcc/doc/libgcc.texi doc in gcc source tree.
+
+gcc-config is responsible to back up libgcc_s.so.* and it's
+runtime dependencies.
+
+Which systems needed this backup
+================================
+
+During normal system operation these libraries should not be
+needed (unless gcc installation is somehow completely broken).
+
+The main use case for libgcc-backup is booting of a system
+with the following properties:
+- '/usr' mount is separate from '/' mount
+- AND binaries in /bin (say, /bin/bash) are executed before
+  /usr is mounted
+
+Which systems link libgcc_s.so in
+=================================
+
+By default gcc attempts to link libgcc_s.so in into every
+binary and shared library. If code generator happens to
+generate the code that does not refer libgcc_s.so then
+-Wl,--as-needed linker option omits the dependency.
+
+Thus any system might have libgcc_s.so linked into any binary
+or shared library.
+
+What goes into this directory
+=============================
+
+- libgcc_s.so.* itself: gcc driver attempts to link it in as-is
+- libunwind.so.*: ia64-*-linux only, a runtime dependency of
+                  libgcc_so.so.*
