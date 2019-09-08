@@ -80,6 +80,18 @@ show_var() {
 	echo "${!1}"
 }
 
+# Compatibility with profile files created before 2019-09-05.
+# These profile files were setting PATH variable.
+# Sourcing them without restoring previous PATH value breaks gcc-config.
+source_profile_pre() {
+	__PATH__=${PATH}
+}
+
+source_profile_post() {
+	PATH=${__PATH__}
+	unset __PATH__
+}
+
 try_real_hard_to_find_CHOST() {
 	#
 	# First we read make.conf
@@ -533,7 +545,9 @@ prefix_copy_gcc_libs() {
 	for x in ${GCC_PROFILES} ; do
 		unset GCC_PATH LDPATH
 		eval $(
+			source_profile_pre
 			source "${x}"
+			source_profile_post
 			echo "GCC_PATH='${GCC_PATH}'"
 			echo "LDPATH='${LDPATH%%:*}'"
 		)
@@ -599,7 +613,9 @@ switch_profile() {
 
 	# Setup things properly again for this profile
 	unset GCC_SPECS LDPATH MULTIOSDIRS
+	source_profile_pre
 	source "${GCC_ENV_D}/${CC_COMP}"
+	source_profile_post
 	# Support older configs that did not setup MULTIOSDIRS for us.
 	: ${MULTIOSDIRS:=../${GENTOO_LIBDIR}}
 
@@ -814,7 +830,9 @@ list_profiles() {
 		if [[ ${x} == ${CURRENT_NATIVE} ]] ; then
 			x="${x} ${GOOD}*${NORMAL}"
 		elif [[ -e ${GCC_ENV_D}/config-${target} ]] ; then
+			source_profile_pre
 			source "${GCC_ENV_D}/config-${target}"
+			source_profile_post
 			[[ ${x} == ${CURRENT} ]] && x="${x} ${HILITE}*${NORMAL}"
 		fi
 		echo " [${i}] ${x}"
