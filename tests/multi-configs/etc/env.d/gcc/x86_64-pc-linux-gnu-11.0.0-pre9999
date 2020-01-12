@@ -1,0 +1,8 @@
+GCC_PATH="/usr/x86_64-pc-linux-gnu/gcc-bin/11.0.0-pre9999"
+LDPATH="/usr/lib/gcc/x86_64-pc-linux-gnu/11.0.0-pre9999:/usr/lib/gcc/x86_64-pc-linux-gnu/11.0.0-pre9999/32"
+MANPATH="/usr/share/gcc-data/x86_64-pc-linux-gnu/11.0.0-pre9999/man"
+INFOPATH="/usr/share/gcc-data/x86_64-pc-linux-gnu/11.0.0-pre9999/info"
+STDCXX_INCDIR="g++-v10"
+CTARGET="x86_64-pc-linux-gnu"
+GCC_SPECS=""
+MULTIOSDIRS="../lib64:../lib"

@@ -68,6 +68,25 @@ usage() {
 }
 [[ $# -lt 1 ]] && usage 1
 
+# Usage: version_sorted_paths <CHOST>
+# Returns paths ordered by version from olders to newest.
+# We use the following hack: assume the input containst digits only in places of versions
+# Normalizer:
+#    echo "hello-world-1.2.3.444.56778" | ${SED} -e 's/[0-9]\+/0000&/g' | ${SED} -e 's/0*\([0-9]\{4\}\)/\1/g'
+#    hello-world-0001.0002.0003.0444.56778
+# That way we can have 9.0 < 10.0 roder.
+version_sorted_paths() {
+	local p mangled_v
+	for p in "$@"; do
+		# TODO: avoid -r
+		mangled_v=$(printf "%s" "${p}" |
+			${SED} -e 's/[0-9]\+/0000&/g' |
+			${SED} -e 's/0*\([0-9]\{4\}\)/\1/g'
+		)
+		printf "%s %s\n" "${mangled_v}" "${p}"
+	done | LANG=C sort | $SED -e 's/^.* //g'
+}
+
 # Usage: source_var <var> <file> [default value]
 source_var() {
 	unset $1
@@ -319,7 +338,7 @@ handle_split_usr() {
 	# We use the same ordering logic as mentioned in the MY_LDPATH setup.
 	# We get the libs from the latest version available.
 	local LDPATH
-	eval $(grep -h '^LDPATH=' "${GCC_ENV_D}"/${CHOST}-* | tail -1)
+	eval $(grep -h '^LDPATH=' $(version_sorted_paths "${GCC_ENV_D}"/${CHOST}-*) | tail -1)
 	LDPATH=${LDPATH%%:*}
 
 	# If GCC directory is not in separate mountpoint than /lib,
@@ -538,6 +557,7 @@ prefix_copy_gcc_libs() {
 		rmdir "${sourcedir}"
 	}
 
+	# We don't rely on iteration order here.
 	local GCC_PROFILES=$(LC_ALL="C" ls ${GCC_ENV_D}/${CHOST}-*)
 
 	local targetdirs= GCC_PATH= LDPATH=
@@ -655,7 +675,7 @@ switch_profile() {
 		local MY_LDPATH
 		MY_LDPATH=$(${SED} -n \
 			-e '/^LDPATH=/{s|LDPATH=||;s|"||g;s|:|\n|g;p}' \
-			"${GCC_ENV_D}"/${CHOST}-* | tac
+			$(version_sorted_paths "${GCC_ENV_D}"/${CHOST}-*) | tac
 		)
 
 		# Pass all by default
@@ -797,7 +817,7 @@ list_profiles() {
 	source_var CURRENT "${GCC_ENV_D}"/config-${CTARGET}
 	CURRENT_NATIVE=${CURRENT}
 	local target=
-	for x in "${GCC_ENV_D}"/* ; do
+	for x in $(version_sorted_paths "${GCC_ENV_D}"/*) ; do
 		[[ -f ${x} ]] || continue
 		[[ ${x} == */config* ]] && continue
 

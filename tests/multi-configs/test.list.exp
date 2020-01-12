@@ -8,3 +8,5 @@ Using gcc-config info in @ROOT@/
  [4] x86_64-pc-linux-gnu-4.6.0
  [5] x86_64-pc-linux-gnu-4.6.1
  [6] x86_64-pc-linux-gnu-4.6.2 *
+ [7] x86_64-pc-linux-gnu-10.0.0
+ [8] x86_64-pc-linux-gnu-11.0.0-pre9999
