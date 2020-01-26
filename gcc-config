@@ -1083,14 +1083,17 @@ if [[ ${DOIT} != "get_current_profile" ]] ; then
 		CC_COMP_TARGET=${CC_COMP%-${CC_COMP_VERSION}*}
 	fi
 
-	if [[ ! -d ${EROOT}/${GCC_LIB}/${CC_COMP_TARGET}/${CC_COMP_VERSION} ]]; then
+	if [[ ! -d ${EROOT}/${GCC_LIB}/${CC_COMP_TARGET}/${CC_COMP_VERSION} ]] ; then
 		CC_COMP_VERSION=${CC_COMP_VERSION%-*}
 	fi
 
-	if [[ ! -d ${EROOT}/${GCC_LIB}/${CC_COMP_TARGET}/${CC_COMP_VERSION} ]] || \
-	   [[ ! -f ${GCC_ENV_D}/${CC_COMP} ]]
-	then
-		eerror "${argv0}: Profile does not exist or invalid setting for ${GCC_ENV_D}/${CC_COMP}" 1>&2
+	if [[ ! -f ${GCC_ENV_D}/${CC_COMP} ]] ; then
+		eerror "${argv0}: Profile '${GCC_ENV_D}/${CC_COMP}' does not exist" 1>&2
+		#exit 1
+	fi
+
+	if [[ ! -d ${EROOT}/${GCC_LIB}/${CC_COMP_TARGET}/${CC_COMP_VERSION} ]] ; then
+		eerror "${argv0}: Did not find compiler at '${EROOT}/${GCC_LIB}/${CC_COMP_TARGET}/${CC_COMP_VERSION}'" 1>&2
 		#exit 1
 	fi
 fi
