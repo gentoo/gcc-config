@@ -1015,7 +1015,7 @@ for x in "$@" ; do
 			if [[ -z $(echo ${x} | tr -d '[:digit:]') ]] ; then
 				# User gave us a # representing the profile
 				i=1
-				for y in "${GCC_ENV_D}"/* ; do
+				for y in $(version_sorted_paths "${GCC_ENV_D}"/*) ; do
 					[[ -f ${y} ]] || continue
 					[[ ${y} == */config* ]] && continue
 
