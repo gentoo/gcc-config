@@ -1,0 +1,7 @@
+#!/bin/bash
+# make sure we get numbering right, try to access gcc-10
+# to make sure number version ordering is right:
+# https://bugs.gentoo.org/706318
+for i in {1..8}; do
+    gcc-config -C -B $i
+done
