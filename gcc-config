@@ -74,7 +74,8 @@ usage() {
 # Normalizer:
 #    echo "hello-world-1.2.3.444.56778" | ${SED} -e 's/[0-9]\+/0000&/g' | ${SED} -e 's/0*\([0-9]\{4\}\)/\1/g'
 #    hello-world-0001.0002.0003.0444.56778
-# That way we can have 9.0 < 10.0 roder.
+# That way we can have 9.0 < 10.0 order.
+# TODO: explore how portable 'sort -V' is and try using that instead.
 version_sorted_paths() {
 	local p mangled_v
 	for p in "$@"; do
