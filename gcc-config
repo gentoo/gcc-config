@@ -307,7 +307,7 @@ update_wrappers() {
 
 	# install the canonical cpp wrapper
 	if ! is_cross_compiler ; then
-		atomic_ln "${EPREFIX%/}/usr/bin/cpp" "${EROOT}lib" "cpp"
+		atomic_ln "${EPREFIX%/}/usr/bin/${CTARGET}-cpp" "${EROOT}lib" "cpp"
 	fi
 }
 
