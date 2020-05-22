@@ -251,7 +251,7 @@ update_wrappers() {
 	#   - ${CTARGET}-gcc-11.0.0 (no gcc-11.0.0 equivalent)
 	#   TODO: is it a gcc or toolchain.eclass bug?
 	#
-	# Cross directory looks liks:
+	# Cross directory looks like:
 	#     /usr/x86_64-pc-linux-gnu/ia64-unknown-linux-gnu/gcc-bin/10.1.0
 	#   Contents look like:
 	#   - ${CTARGET}-foo (${CTARGET}-gcc
@@ -277,7 +277,7 @@ update_wrappers() {
 	[[ -z ${new_wrappers} ]] && return 1
 
 	# First delete the wrappers that the old one provided but the
-	# new one does not.
+	# new ones do not.
 	for x in "${old_wrappers[@]}" ; do
 		has "${x}" "${new_wrappers[@]}" && continue
 		rm -f "${EROOT}usr/bin/${x}" "${EROOT}usr/bin/${CTARGET}-${x}"
@@ -300,11 +300,14 @@ update_wrappers() {
 		# wrapper (the binary we're 'wrapping') so that we can
 		# sync mtimes together.  This makes things like ccache
 		# happy.  See Bug #70548 for more info.
+		#
+		# x=cc:gcc -> ref=/path/to/gcc
 		ref="${ROOT}${GCC_PATH}/${x#*:}"
 		if [[ ${x} == *:* ]] ; then
 			# Only install a wrapper if the reference binary exists ...
 			[[ -x ${ref} ]] || continue
 		fi
+		# x=cc:gcc -> x=cc
 		x=${x%:*}
 		if [[ ! -x ${ref} ]] ; then
 			if is_cross_compiler ; then
