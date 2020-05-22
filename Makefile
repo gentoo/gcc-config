@@ -1,3 +1,10 @@
+# configurable options:
+# Avoid installing native symlinks like:
+#     /usr/bin/gcc -> ${CTARGET}-gcc
+# and keep only
+#     ${CTARGET}-gcc
+USE_NATIVE_LINKS ?= yes
+
 EPREFIX ?=
 
 PN = gcc-config
@@ -27,6 +34,7 @@ clean:
 		-e 's:@GENTOO_EPREFIX@:$(EPREFIX):g' \
 		-e 's:@GENTOO_LIBDIR@:$(SUBLIBDIR):g' \
 		-e 's:@PV@:$(PV):g' \
+		-e 's:@USE_NATIVE_LINKS@:$(USE_NATIVE_LINKS):g' \
 		$< > $@
 	chmod a+rx $@
 

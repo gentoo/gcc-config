@@ -261,9 +261,10 @@ update_wrappers() {
 	done
 
 	# For all toolchains, we want to create the fully qualified
-	# `tuple-foo`.  Only native ones do we want the simple `foo`.
+	# `tuple-foo`.  Only native ones do we want the simple `foo`
+	# and only for USE_NATIVE_LINKS=yes mode.
 	local all_wrappers=( ${new_wrappers[@]/#/${CTARGET}-} )
-	if ! is_cross_compiler ; then
+	if ! is_cross_compiler && [[ ${USE_NATIVE_LINKS} == yes ]] ; then
 		all_wrappers+=( "${new_wrappers[@]}" )
 		# There are a few fun extra progs which we have to handle #412319
 		all_wrappers+=( cc:gcc f77:g77 )
@@ -952,6 +953,7 @@ FORCE="no"
 CC_COMP=
 ENV_D="${EROOT}etc/env.d"
 GCC_ENV_D="${ENV_D}/gcc"
+USE_NATIVE_LINKS="@USE_NATIVE_LINKS@"
 
 for x in "$@" ; do
 	case "${x}" in
@@ -1005,6 +1007,8 @@ for x in "$@" ; do
 			echo "${argv0}: @PV@"
 			exit 0
 			;;
+		--enable-native-links)  USE_NATIVE_LINKS="yes" ;;
+		--disable-native-links) USE_NATIVE_LINKS="no" ;;
 		-*)
 			die "Invalid switch!  Run ${argv0} without parameters for help."
 			;;
