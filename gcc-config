@@ -235,6 +235,29 @@ update_wrappers() {
 	# for new functionality (like a version bump).
 	local x CTARGET=$1
 
+	# Facts on gcc's private binary dir contents:
+	#
+	# Native directory looks like:
+	#     /usr/x86_64-pc-linux-gnu/gcc-bin/11.0.0
+	#   Contents looks like:
+	#   - 'foo' ('gcc', 'c++', 'gcc-ar', 'lto-dump')
+	#   - 'foo-${v}' (go-11, gofmt-11)
+	#   - ${CTARGET}-foo (${CTARGET}-gcc
+	#
+	#   Not each 'foo' has it's ${CTARGET}-foo match.
+	#   Examples are:
+	#   - lto-dump, gcov-dump, gcov-tool (no ${CTARGET}-lto-dump equvalent)
+	#   - go-${MAJOR}, gofmt-${MAJOR} (no ${CTARGET}-go-${MAJOR} equivalent)
+	#   - ${CTARGET}-gcc-11.0.0 (no gcc-11.0.0 equivalent)
+	#   TODO: is it a gcc or toolchain.eclass bug?
+	#
+	# Cross directory looks liks:
+	#     /usr/x86_64-pc-linux-gnu/ia64-unknown-linux-gnu/gcc-bin/10.1.0
+	#   Contents look like:
+	#   - ${CTARGET}-foo (${CTARGET}-gcc
+	#
+	#   Every tool is prefixed.
+
 	# Use the old dir to see what we wrapped up previously.
 	local old_wrappers=( $(
 		[[ -n ${OLD_GCC_PATH} ]] || exit 1
