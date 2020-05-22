@@ -287,7 +287,7 @@ update_wrappers() {
 	# `tuple-foo`.  Only native ones do we want the simple `foo`
 	# and only for USE_NATIVE_LINKS=yes mode.
 	local all_wrappers=( ${new_wrappers[@]/#/${CTARGET}-} )
-	if ! is_cross_compiler && [[ ${USE_NATIVE_LINKS} == yes ]] ; then
+	if ! is_cross_compiler ; then
 		all_wrappers+=( "${new_wrappers[@]}" )
 		# There are a few fun extra progs which we have to handle #412319
 		all_wrappers+=( cc:gcc f77:g77 )
@@ -303,12 +303,9 @@ update_wrappers() {
 		#
 		# x=cc:gcc -> ref=/path/to/gcc
 		ref="${ROOT}${GCC_PATH}/${x#*:}"
-		if [[ ${x} == *:* ]] ; then
-			# Only install a wrapper if the reference binary exists ...
-			[[ -x ${ref} ]] || continue
-		fi
 		# x=cc:gcc -> x=cc
 		x=${x%:*}
+
 		if [[ ! -x ${ref} ]] ; then
 			if is_cross_compiler ; then
 				ewarn "insanity with ${x} and ${ref}"
@@ -320,10 +317,12 @@ update_wrappers() {
 		fi
 
 		# Now do the actual linking to the target binary
-		if [[ -x ${ref} ]] ; then
+		if [[ ${x#${CTARGET}-} == ${x} && ${USE_NATIVE_LINKS} != yes ]]; then
+			# Delete stale native symlink.
+			rm -f "${EROOT}usr/bin/${x}"
+		elif [[ -x ${ref} ]] ; then
 			atomic_ln "${ref#${ROOT}}" "${EROOT}usr/bin" "${x}"
 		else
-			ewarn "double insanity with ${x} and ${ref}"
 			# Make sure we have no stale wrappers
 			rm -f "${EROOT}usr/bin/${x}"
 		fi
