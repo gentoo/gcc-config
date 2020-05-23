@@ -242,7 +242,7 @@ update_wrappers() {
 	#   Contents looks like:
 	#   - 'foo' ('gcc', 'c++', 'gcc-ar', 'lto-dump')
 	#   - 'foo-${v}' (go-11, gofmt-11)
-	#   - ${CTARGET}-foo (${CTARGET}-gcc
+	#   - ${CTARGET}-foo ('${CTARGET}-gcc', ...)
 	#
 	#   Not each 'foo' has it's ${CTARGET}-foo match.
 	#   Examples are:
@@ -254,7 +254,7 @@ update_wrappers() {
 	# Cross directory looks like:
 	#     /usr/x86_64-pc-linux-gnu/ia64-unknown-linux-gnu/gcc-bin/10.1.0
 	#   Contents look like:
-	#   - ${CTARGET}-foo (${CTARGET}-gcc
+	#   - ${CTARGET}-foo ('${CTARGET}-gcc', ...)
 	#
 	#   Every tool is prefixed.
 
