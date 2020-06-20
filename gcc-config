@@ -330,12 +330,24 @@ update_wrappers() {
 	# legacy cruft, make sure we dont leave it laying around #143205
 	rm -f "${EROOT}usr/bin/${CTARGET}-cc" "${EROOT}usr/bin"/{${CTARGET}-,}g{cc,++}{32,64}
 
-	# install the canonical cpp wrapper
+	# handle the canonical cpp wrapper
 	if ! is_cross_compiler ; then
 		if [[ ${USE_NATIVE_LINKS} == yes ]]; then
 			atomic_ln "${EPREFIX%/}/usr/bin/${CTARGET}-cpp" "${EROOT}lib" "cpp"
 		else
 			rm -f "${EROOT}lib/cpp"
+		fi
+	fi
+
+	# handle c89 and c99 wrappers
+	if ! is_cross_compiler ; then
+		if [[ ${USE_NATIVE_LINKS} == yes ]]; then
+			# In June 2020 gcc-config taken over file handling from toolchain.eclass.
+			cp -fpP "${EROOT}"usr/share/gcc-config/c89 "${EROOT}"usr/bin/c89
+			cp -fpP "${EROOT}"usr/share/gcc-config/c99 "${EROOT}"usr/bin/c99
+		else
+			rm -f "${EROOT}"usr/bin/c89
+			rm -f "${EROOT}"usr/bin/c99
 		fi
 	fi
 }

@@ -7,4 +7,6 @@
 
 /gcc-config-*.tar.*
 
+/.c89
+/.c99
 /.gcc-config

@@ -1,9 +1,14 @@
 # configurable options:
+
 # Avoid installing native symlinks like:
 #     /usr/bin/gcc -> ${CTARGET}-gcc
 # and keep only
 #     ${CTARGET}-gcc
 USE_NATIVE_LINKS ?= yes
+
+# Prepend toolchain prefix to 'gcc' in c89/c99 wrapeprs.
+#    Should usually be '${CHOST}-'.
+TOOLCHAIN_PREFIX ?=
 
 EPREFIX ?=
 
@@ -14,6 +19,7 @@ P = $(PN)-$(PV)
 PREFIX = $(EPREFIX)/usr
 BINDIR = $(PREFIX)/bin
 DOCDIR = $(PREFIX)/share/doc/$(P)
+SHAREDIR = $(PREFIX)/share/$(PN)
 ESELECTDIR = $(PREFIX)/share/eselect/modules
 
 SUBLIBDIR = lib
@@ -23,10 +29,10 @@ MKDIR_P = mkdir -p -m 755
 INSTALL_EXE = install -m 755
 INSTALL_DATA = install -m 644
 
-all: .gcc-config
+all: .gcc-config .c89 .c99
 
 clean:
-	rm -f .gcc-config
+	rm -f .gcc-config .c89 .c99
 
 .gcc-config: gcc-config
 	sed \
@@ -38,9 +44,31 @@ clean:
 		$< > $@
 	chmod a+rx $@
 
+.c89: c89
+	sed \
+		-e '1s:/:$(EPREFIX)/:' \
+		-e 's:@PV@:$(PV):g' \
+		-e 's:@TOOLCHAIN_PREFIX@:$(TOOLCHAIN_PREFIX):g' \
+		$< > $@
+	chmod a+rx $@
+
+.c99: c99
+	sed \
+		-e '1s:/:$(EPREFIX)/:' \
+		-e 's:@PV@:$(PV):g' \
+		-e 's:@TOOLCHAIN_PREFIX@:$(TOOLCHAIN_PREFIX):g' \
+		$< > $@
+	chmod a+rx $@
+
 install: all
-	$(MKDIR_P) $(DESTDIR)$(BINDIR) $(DESTDIR)$(ESELECTDIR) $(DESTDIR)$(DOCDIR)
+	$(MKDIR_P) $(DESTDIR)$(BINDIR) $(DESTDIR)$(ESELECTDIR) $(DESTDIR)$(SHAREDIR) $(DESTDIR)$(DOCDIR)
 	$(INSTALL_EXE) .gcc-config $(DESTDIR)$(BINDIR)/gcc-config
+	$(INSTALL_EXE) .c89 $(DESTDIR)$(SHAREDIR)/c89
+	$(INSTALL_EXE) .c99 $(DESTDIR)$(SHAREDIR)/c99
+	if [ "$(USE_NATIVE_LINKS)" = yes ] ; then \
+		$(INSTALL_EXE) .c89 $(DESTDIR)$(BINDIR)/c89 && \
+		$(INSTALL_EXE) .c99 $(DESTDIR)$(BINDIR)/c99 ;  \
+	fi
 	$(INSTALL_DATA) gcc.eselect $(DESTDIR)$(ESELECTDIR)
 	$(INSTALL_DATA) README $(DESTDIR)$(DOCDIR)
 
