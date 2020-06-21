@@ -29,6 +29,9 @@ Files, variables, things.
 
       See `gcc-config` script for wrapping details.
 
+    /usr/bin/c89 (native)
+    /usr/bin/c99 (native)
+
 - private gcc configs (provided by `toolchain.eclass`, gcc ebuilds)
 
     /etc/env.d/gcc/x86_64-pc-linux-gnu-8.1.0
