@@ -69,3 +69,9 @@ TODOs
 - Figure out symlink ownership story. Today symlinks don't belong to any package.
 
   See https://bugs.gentoo.org/626606
+
+Releasing
+---------
+
+  $ release=2.3.1; git tag -a -s -m "release ${release}" v${release}; make dist PV=${release}
+  $ git push --tags origin
