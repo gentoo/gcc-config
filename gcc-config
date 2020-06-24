@@ -289,8 +289,10 @@ update_wrappers() {
 	local all_wrappers=( ${new_wrappers[@]/#/${CTARGET}-} )
 	if ! is_cross_compiler ; then
 		all_wrappers+=( "${new_wrappers[@]}" )
-		# There are a few fun extra progs which we have to handle #412319
-		all_wrappers+=( cc:gcc f77:g77 )
+		if [[ ${USE_CC_WRAPPERS} == "yes" ]]; then
+			# There are a few fun extra progs which we have to handle #412319
+			all_wrappers+=( cc:gcc f77:g77 )
+		fi
 	fi
 
 	# Then install wrappers for anything new to this profile.
@@ -995,6 +997,7 @@ CC_COMP=
 ENV_D="${EROOT}etc/env.d"
 GCC_ENV_D="${ENV_D}/gcc"
 USE_NATIVE_LINKS="@USE_NATIVE_LINKS@"
+USE_CC_WRAPPERS="@USE_CC_WRAPPERS@"
 
 for x in "$@" ; do
 	case "${x}" in
@@ -1050,6 +1053,8 @@ for x in "$@" ; do
 			;;
 		--enable-native-links)  USE_NATIVE_LINKS="yes" ;;
 		--disable-native-links) USE_NATIVE_LINKS="no" ;;
+		--enable-cc-wrappers)  USE_CC_WRAPPERS="yes" ;;
+		--disable-cc-wrappers) USE_CC_WRAPPERS="no" ;;
 		-*)
 			die "Invalid switch!  Run ${argv0} without parameters for help."
 			;;

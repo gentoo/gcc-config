@@ -5,6 +5,8 @@
 # and keep only
 #     ${CTARGET}-gcc
 USE_NATIVE_LINKS ?= yes
+# Install cc/f77 symlinks to gcc/g77.
+USE_CC_WRAPPERS ?= yes
 
 # Prepend toolchain prefix to 'gcc' in c89/c99 wrapeprs.
 #    Should usually be '${CHOST}-'.
@@ -41,6 +43,7 @@ clean:
 		-e 's:@GENTOO_LIBDIR@:$(SUBLIBDIR):g' \
 		-e 's:@PV@:$(PV):g' \
 		-e 's:@USE_NATIVE_LINKS@:$(USE_NATIVE_LINKS):g' \
+		-e 's:@USE_CC_WRAPPERS@:$(USE_CC_WRAPPERS):g' \
 		$< > $@
 	chmod a+rx $@
 
