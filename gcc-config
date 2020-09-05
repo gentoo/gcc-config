@@ -720,7 +720,7 @@ switch_profile() {
 		local MY_LDPATH
 		MY_LDPATH=$(${SED} -n \
 			-e '/^LDPATH=/{s|LDPATH=||;s|"||g;s|:|\n|g;p}' \
-			$(version_sorted_paths "${GCC_ENV_D}"/${CHOST}-*) | tac
+			$(version_sorted_paths "${GCC_ENV_D}"/${CHOST}-* | tac)
 		)
 
 		# Pass all by default
