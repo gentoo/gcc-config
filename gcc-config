@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2002-2019 Gentoo Authors
+# Copyright 2002-2021 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 # Format of /etc/env.d/gcc/ contents:
@@ -155,11 +155,10 @@ get_chost() {
 
 	export CHOST
 
-	# make sure portage isnt broken
-	if python -V &>/dev/null ; then
-		CHOST=$(portageq envvar CHOST 2>/dev/null)
-	else
-		ewarn "Python seems to be broken, attempting to locate CHOST ourselves ..."
+	# Make sure Portage isn't broken.
+	CHOST=$(portageq envvar CHOST 2>/dev/null)
+	if [[ $? != 0 || -z ${CHOST} ]] ; then
+		ewarn "Python or Portage seems to be broken, attempting to locate CHOST ourselves ..."
 		CHOST=$(try_real_hard_to_find_CHOST)
 	fi
 
