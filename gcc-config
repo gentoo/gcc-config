@@ -65,6 +65,8 @@ usage() {
 	Profile names are of the form:  <CTARGET>-<version> (like 'i686-pc-linux-gnu-3.2.1')
 	                                <version> (like '3.2.1')
 	                                <profile-number> (as specified in '--list-profiles')
+	                                latest
+	                                <CTARGET>-latest (like mmix-latest)
 	EOF
 	exit ${1:-1}
 }
@@ -1081,6 +1083,14 @@ for x in "$@" ; do
 					die "Could not locate profile #$x !"
 				fi
 			else
+				# User gave us "latest" or "<CTARGET>-latest".
+				if [[ ${x} == latest ]]; then
+					get_chost
+					x=$(version_sorted_paths "${GCC_ENV_D}"/${CHOST}-* | tail -1)
+				elif [[ ${x} == *-latest ]]; then
+					x=$(version_sorted_paths "${GCC_ENV_D}"/${x%-latest}-* | tail -1)
+				fi
+
 				# User gave us a full <CTARGET-version>, <CTARGET> or <version>
 				x=${x##*/}
 				if [[ ${DOIT} == "get_current_profile" && -z $(ls "${GCC_ENV_D}"/${x}-* 2>/dev/null) ]] || \
