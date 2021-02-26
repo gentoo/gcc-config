@@ -45,6 +45,7 @@ GENTOO_LIBDIR="@GENTOO_LIBDIR@"
 usage() {
 	cat <<-EOF
 	Usage: gcc-config [options] [CC Profile]
+	       gcc-config [options] --get-current-profile [CTARGET]
 	Change the current compiler profile, or give info about profiles.
 
 	Options:
@@ -1080,7 +1081,7 @@ for x in "$@" ; do
 					die "Could not locate profile #$x !"
 				fi
 			else
-				# User gave us a full <CTARGET-version> or <version>
+				# User gave us a full <CTARGET-version>, <CTARGET> or <version>
 				x=${x##*/}
 				if [[ ${DOIT} == "get_current_profile" && -z $(ls "${GCC_ENV_D}"/${x}-* 2>/dev/null) ]] || \
 				   [[ ${DOIT} != "get_current_profile" && ! -f ${GCC_ENV_D}/${x} ]]
