@@ -1064,7 +1064,7 @@ for x in "$@" ; do
 			fi
 
 			if [[ -z $(echo ${x} | tr -d '[:digit:]') ]] ; then
-				# User gave us a # representing the profile
+				# User gave us a profile index number from '--list-profiles'
 				i=1
 				for y in $(version_sorted_paths "${GCC_ENV_D}"/*) ; do
 					[[ -f ${y} ]] || continue
