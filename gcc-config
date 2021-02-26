@@ -1080,12 +1080,12 @@ for x in "$@" ; do
 					die "Could not locate profile #$x !"
 				fi
 			else
-				# User gave us a full HOST-gccver
+				# User gave us a full <CTARGET-version> or <version>
 				x=${x##*/}
 				if [[ ${DOIT} == "get_current_profile" && -z $(ls "${GCC_ENV_D}"/${x}-* 2>/dev/null) ]] || \
 				   [[ ${DOIT} != "get_current_profile" && ! -f ${GCC_ENV_D}/${x} ]]
 				then
-					# Maybe they just gave us a gccver ...
+					# Maybe they just gave us a <version>. Infer <CTARGET>.
 					get_chost
 					if [[ -f ${GCC_ENV_D}/${CHOST}-${x} ]] ; then
 						x=${CHOST}-${x}
