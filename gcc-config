@@ -668,7 +668,7 @@ switch_profile() {
 
 	# Make sure we have write access to the dirs.  Do not require `root`
 	# so that we work with prefix/cross/etc... setups that run as user.
-	[[ ! -w ${EROOT} ]] && die "need write access to ${EROOT}"
+	[[ ! -w ${ENV_D} ]] && die "need write access to ${ENV_D}"
 
 	if is_cross_compiler ; then
 		ebegin "Switching cross-compiler to ${CC_COMP}"
