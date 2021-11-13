@@ -668,6 +668,11 @@ switch_profile() {
 
 	# Make sure we have write access to the dirs.  Do not require `root`
 	# so that we work with prefix/cross/etc... setups that run as user.
+	#
+	# [It's important we use ${ENV_D} and not e.g. ${EROOT} because for, say
+	# SELinux, we may not actually be able to write to ${EROOT}, but would
+	# be allowed for specific paths like the gcc wrappers we need to
+	# modify. bug #823203.]
 	[[ ! -w ${ENV_D} ]] && die "need write access to ${ENV_D}"
 
 	if is_cross_compiler ; then
