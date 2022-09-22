@@ -3,17 +3,24 @@
 # Avoid bash localization of error messages
 export LC_ALL=C
 
-ebegin() { printf '%s*%s %s ... ' "${GOOD}" "${NORMAL}" "$*" ; }
-eend() {
-	local r=${1:-0}
-	shift
-	if [[ $r -eq 0 ]] ; then
+functions_script="${EPREFIX}/lib/gentoo/functions.sh"
+source "${functions_script}" || {
+	echo "${argv0}: Could not source ${functions_script}!" 1>&2
+
+	ebegin() { printf '%s*%s %s ... ' "${GOOD}" "${NORMAL}" "$*" ; }
+
+	eend() {
+		local r=${1:-0}
+		shift
+		if [[ $r -eq 0 ]] ; then
 		printf '[ %sok%s ]\n' "${GOOD}" "${NORMAL}"
-	else
-		printf '%s [ %s!!%s ]\n' "$*" "${BAD}" "${NORMAL}"
-	fi
-	return $r
+		else
+			printf '%s [ %s!!%s ]\n' "$*" "${BAD}" "${NORMAL}"
+		fi
+		return $r
+	}
 }
+
 die() { echo "$*" 1>&2; exit 1; }
 
 vars=( CHOST GCC_CONFIG ROOT TROOT NOCOLOR RC_NOCOLOR )
