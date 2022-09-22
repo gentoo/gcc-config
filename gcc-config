@@ -332,8 +332,15 @@ update_wrappers() {
 			rm -f "${EROOT}usr/bin/${x}"
 		fi
 	done
-	# legacy cruft, make sure we dont leave it laying around #143205
+
+	# Legacy cruft, make sure we don't leave it laying around, as we used to install
+	# genuine wrappers like python-exec, bug #143205
 	rm -f "${EROOT}usr/bin/${CTARGET}-cc" "${EROOT}usr/bin"/{${CTARGET}-,}g{cc,++}{32,64}
+
+	# But create our own ${CTARGET}-cc in /usr/bin to avoid fallbacks
+	# to the symlinks LLVM creates (sys-devel/clang-toolchain-symlinks).
+	# bug #872416.
+	atomic_ln "${EROOT}usr/bin/${CTARGET}-gcc" "${EROOT}usr/bin" "${CTARGET}-cc"
 
 	# handle the canonical cpp wrapper
 	if ! is_cross_compiler ; then
