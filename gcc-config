@@ -1,5 +1,5 @@
-#!/bin/bash
-# Copyright 2002-2021 Gentoo Authors
+#!/usr/bin/env bash
+# Copyright 2002-2022 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 # Format of /etc/env.d/gcc/ contents:

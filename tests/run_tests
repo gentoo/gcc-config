@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Avoid bash localization of error messages
 export LC_ALL=C
