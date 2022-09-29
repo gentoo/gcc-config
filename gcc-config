@@ -747,6 +747,14 @@ switch_profile() {
 			echo "LDPATH=\"${MY_LDPATH}\"" >> "${envd}.tmp"
 		fi
 
+		# Avoid ccache cache invalidations where possible between
+		# snapshots and minor GCC versions, bug #872971.
+		# For GCC 10, we changed the slotting from e.g. 10.4 -> 10.
+		local gcc_major_version="${CC_COMP_VERSION%%.*}"
+		if [[ "${gcc_major_version}" -ge 10 ]] ; then
+			echo "CCACHE_COMPILERCHECK=\"string:gcc-${gcc_major_version}\"" >> "${envd}.tmp"
+		fi
+
 		# Punt old files; maybe globs too much, but oh well
 		# 'NATIVE' and '.NATIVE' were used by gcc-wrapper before Aug 2018
 		# and are not used as wrapper is removed.
