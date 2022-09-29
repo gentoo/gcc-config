@@ -128,7 +128,7 @@ try_real_hard_to_find_CHOST() {
 	local ret=$(source "${conf}" 2>/dev/null ; echo ${!varname})
 	if [[ -z ${ret} ]] ; then
 		# newer portage supports spaces between the var and =
-		# CHOST     =  "this-is-retarded"
+		# CHOST     =  "this-is-silly"
 		ret=$(eval $(
 			${SED} -n \
 				-e 's:[[:space:]]::g' \
