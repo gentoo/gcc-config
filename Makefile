@@ -38,7 +38,6 @@ clean:
 
 .gcc-config: gcc-config
 	sed \
-		-e '1s:/:$(EPREFIX)/:' \
 		-e 's:@GENTOO_EPREFIX@:$(EPREFIX):g' \
 		-e 's:@GENTOO_LIBDIR@:$(SUBLIBDIR):g' \
 		-e 's:@PV@:$(PV):g' \
