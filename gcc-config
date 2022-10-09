@@ -783,6 +783,21 @@ switch_profile() {
 			find "${pkgconfdir}"/libgcj*.pc -xtype l -delete 2>/dev/null
 		done
 
+		# Only update the file if it already exists to allow us to
+		# walk it back if necessary by dropping it from clang-common.
+		# See bug #868639 for background.
+		if [[ -f "${EROOT}/etc/clang/gentoo-gcc-install.cfg" ]] ; then
+			local gcc_lib_path="$(get_lib_path)"
+			gcc_lib_path="${gcc_lib_path%%:*}"
+			cat > "${EROOT}/etc/clang/gentoo-gcc-install.cfg.tmp" <<-EOF
+				# This file is maintained by gcc-config.
+				# It is used to specify the selected GCC installation.
+				--gcc-install-dir="${gcc_lib_path}"
+			EOF
+
+			mv_if_diff "${EROOT}/etc/clang/gentoo-gcc-install.cfg.tmp" "${EROOT}/etc/clang/gentoo-gcc-install.cfg"
+		fi
+
 		prefix_copy_gcc_libs
 		handle_split_usr
 		: $(( envd_changed += $? ))
