@@ -345,7 +345,7 @@ update_wrappers() {
 	# But create our own ${CTARGET}-cc in /usr/bin to avoid fallbacks
 	# to the symlinks LLVM creates (sys-devel/clang-toolchain-symlinks).
 	# bug #872416.
-	atomic_ln "${EROOT}usr/bin/${CTARGET}-gcc" "${EROOT}usr/bin" "${CTARGET}-cc"
+	atomic_ln "${CTARGET}-gcc" "${EROOT}usr/bin" "${CTARGET}-cc"
 
 	# handle the canonical cpp wrapper
 	if ! is_cross_compiler ; then
@@ -813,11 +813,12 @@ switch_profile() {
 	# Update LTO plugin for GCC.  Supported as of binutils 2.25.
 	local BFD_PLUGINS_DIR
 	local LIBLTO_PLUGIN
-	LIBLTO_PLUGIN="${EROOT}usr/libexec/gcc/${CTARGET}/${CC_COMP_VERSION}/liblto_plugin.so"
 	if is_cross_compiler; then
 		BFD_PLUGINS_DIR="${EROOT}usr/${CHOST}/${CTARGET}/binutils-bin/lib/bfd-plugins"
+		LIBLTO_PLUGIN="../../../../../libexec/gcc/${CTARGET}/${CC_COMP_VERSION}/liblto_plugin.so"
 	else
 		BFD_PLUGINS_DIR="${EROOT}usr/${CHOST}/binutils-bin/lib/bfd-plugins"
+	        LIBLTO_PLUGIN="../../../../libexec/gcc/${CTARGET}/${CC_COMP_VERSION}/liblto_plugin.so"
 	fi
 	mkdir -p "${BFD_PLUGINS_DIR}"
 	ln -sf "${LIBLTO_PLUGIN}" "${BFD_PLUGINS_DIR}"
