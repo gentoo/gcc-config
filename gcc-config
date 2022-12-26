@@ -9,8 +9,9 @@
 : ${ROOT:=/}
 [[ ${ROOT} != */ ]] && ROOT="${ROOT}/"
 [[ ${ROOT} != /* ]] && ROOT="${PWD%/}/${ROOT}"
-EPREFIX="@GENTOO_EPREFIX@"
-[[ ${EPREFIX} == @*@ ]] && EPREFIX=""
+BROOT="@GENTOO_EPREFIX@"
+[[ ${BROOT} == @*@ ]] && BROOT=""
+: ${EPREFIX="${BROOT}"}
 EROOT="${ROOT%/}${EPREFIX}/"
 
 cd /
@@ -18,7 +19,7 @@ cd /
 trap ":" INT QUIT TSTP
 
 argv0=${0##*/}
-functions_script="${EPREFIX}/lib/gentoo/functions.sh"
+functions_script="${BROOT}/lib/gentoo/functions.sh"
 source "${functions_script}" || {
 	echo "${argv0}: Could not source ${functions_script}!" 1>&2
 	exit 1
