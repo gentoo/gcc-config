@@ -41,7 +41,10 @@ fi
 
 PV="@PV@"
 [[ ${PV} == @*@ ]] && PV="git"
-GENTOO_LIBDIR="@GENTOO_LIBDIR@"
+
+ABI=$(portageq envvar DEFAULT_ABI 2>/dev/null)
+GENTOO_LIBDIR=$(portageq envvar LIBDIR_"${ABI}" 2>/dev/null)
+[[ $? != 0 || -z ${GENTOO_LIBDIR} ]] && GENTOO_LIBDIR="@GENTOO_LIBDIR@"
 [[ ${GENTOO_LIBDIR} == @*@ ]] && GENTOO_LIBDIR="lib"
 
 usage() {
