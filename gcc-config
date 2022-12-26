@@ -13,6 +13,7 @@ BROOT="@GENTOO_EPREFIX@"
 [[ ${BROOT} == @*@ ]] && BROOT=""
 : ${EPREFIX="${BROOT}"}
 EROOT="${ROOT%/}${EPREFIX}/"
+export PORTAGE_CONFIGROOT="${EROOT}"
 
 cd /
 
