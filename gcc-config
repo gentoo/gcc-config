@@ -426,7 +426,7 @@ handle_split_usr() {
 		# but for now, that should be safe ...
 		for gcclib in "${ROOT}${LDPATH}"/lib${gcclib}.so.* ; do
 			[[ -e ${gcclib} ]] || continue
-			einfo "Backing up '${gcclib}' to '${libdir}"
+			einfo "Backing up '${gcclib}' to '${libdir}'"
 			cp -pP "${gcclib}" "${libdir}"/.gcc.config.new/
 			# no need to sanity `rm` this as the `mv` should take care
 			# of it.  we also need this step to be completely atomic
