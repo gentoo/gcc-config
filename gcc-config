@@ -42,9 +42,10 @@ fi
 PV="@PV@"
 [[ ${PV} == @*@ ]] && PV="git"
 
-ABI=$(portageq envvar DEFAULT_ABI 2>/dev/null)
-GENTOO_LIBDIR=$(portageq envvar LIBDIR_"${ABI}" 2>/dev/null)
-[[ $? != 0 || -z ${GENTOO_LIBDIR} ]] && GENTOO_LIBDIR="@GENTOO_LIBDIR@"
+ABI=${DEFAULT_ABI:-$(portageq envvar DEFAULT_ABI 2>/dev/null)}
+LIBDIR_VAR=LIBDIR_${ABI}
+GENTOO_LIBDIR=${!LIBDIR_VAR:-$(portageq envvar "${LIBDIR_VAR}" 2>/dev/null)}
+[[ $? -ne 0 || -z ${GENTOO_LIBDIR} ]] && GENTOO_LIBDIR="@GENTOO_LIBDIR@"
 [[ ${GENTOO_LIBDIR} == @*@ ]] && GENTOO_LIBDIR="lib"
 
 usage() {
@@ -166,7 +167,7 @@ get_chost() {
 
 	# Make sure Portage isn't broken.
 	CHOST=$(portageq envvar CHOST 2>/dev/null)
-	if [[ $? != 0 || -z ${CHOST} ]] ; then
+	if [[ $? -ne 0 || -z ${CHOST} ]] ; then
 		ewarn "Python or Portage seems to be broken, attempting to locate CHOST ourselves ..."
 		CHOST=$(try_real_hard_to_find_CHOST)
 	fi
