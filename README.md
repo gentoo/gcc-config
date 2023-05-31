@@ -1,7 +1,7 @@
 # What is gcc-config?
 
-`gcc-config` allows Gentoo users to switch active gcc safely
-and allows querying facts about installed toolchains.
+`gcc-config` allows Gentoo users to switch active gcc safely and allows
+querying facts about installed toolchains.
 
 ## Usage
 
@@ -12,10 +12,9 @@ To switch active `gcc` while system runs:
     $ gcc-config x86_64-pc-linux-gnu-7.2.0
 ```
 
-Ideally changes should be visible instantly and atomically
-without shell restart.
+Ideally changes should be visible instantly and atomically without shell restart.
 
-To query where real `gcc` binaries are hiding:
+To query where the real `gcc` binaries are hiding:
 
 ```
     $ gcc-config -B $(gcc-config -c)
@@ -82,11 +81,11 @@ Used by `env-update` to populate `$PATH` and more (TODO: remove `$PATH` populati
 
 ## TODOs
 
-- Write proper `gcc-config` manpage off this readme to be more discoverable.
+- Write proper `gcc-config` manpage based on this readme to be more discoverable.
 
-- Figure out symlink ownership story. Today symlinks don't belong to any package.
+- Figure out symlink ownership story. Right now, symlinks don't belong to any package.
 
-  See [bug 626606](https://bugs.gentoo.org/626606)
+  See [bug 626606](https://bugs.gentoo.org/626606).
 
 ## Releasing
 
