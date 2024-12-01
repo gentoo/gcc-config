@@ -318,7 +318,7 @@ update_wrappers() {
 		x=${x%:*}
 
 		if [[ ! -x ${ref} ]] ; then
-			if is_cross_compiler ; then
+			if is_cross_compiler && [[ ${ref} != *-accel-* ]] ; then
 				ewarn "insanity with ${x} and ${ref}"
 			else
 				# For native targets, the ref might not be
@@ -332,6 +332,16 @@ update_wrappers() {
 			# Delete stale native symlink.
 			rm -f "${EROOT}usr/bin/${x}"
 		elif [[ -x ${ref} ]] ; then
+			# accel/offload compilers are named like 'x86_64-pc-linux-gnu-accel-nvptx-none-gcc'.
+			#
+			# When building the offload compiler, we'll have ${CHOST}-${CTARGET} where
+			# CHOST is the host and CTARGET is whatever the offload target is. gcc-config
+			# doesn't expect this 'double tuple'.
+			#
+			# e.g. when building nvptx-none, we'll have something like 'nvptx-none-x86_64-pc-linux-gnu-accel-nvptx-none-gcc'
+			# and we want to strip that to be just x86_64-pc-linux-gnu-accel-nvptx-none-gcc, as that's
+			# what we want symlinks to be made for in /usr/bin.
+			[[ ${x} == *-accel-* ]] && x="${x#${CTARGET}-}"
 			atomic_ln "${ref#${ROOT}}" "${EROOT}usr/bin" "${x}"
 		else
 			# Make sure we have no stale wrappers
