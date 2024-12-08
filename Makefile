@@ -72,7 +72,7 @@ install: all
 		$(INSTALL_EXE) .c99 $(DESTDIR)$(BINDIR)/c99 ;  \
 	fi
 	$(INSTALL_DATA) gcc.eselect $(DESTDIR)$(ESELECTDIR)
-	$(INSTALL_DATA) README $(DESTDIR)$(DOCDIR)
+	$(INSTALL_DATA) README.md $(DESTDIR)$(DOCDIR)
 
 test check: .gcc-config
 	cd tests && ./run_tests
