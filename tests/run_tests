@@ -23,7 +23,7 @@ source "${functions_script}" || {
 
 die() { echo "$*" 1>&2; exit 1; }
 
-vars=( CHOST GCC_CONFIG ROOT TROOT NOCOLOR RC_NOCOLOR )
+vars=( CHOST GCC_CONFIG ROOT TROOT NO_COLOR )
 unset ${vars[@]}
 
 TROOT=${PWD}
@@ -33,8 +33,7 @@ if ! "${GCC_CONFIG}" --help >/dev/null ; then
 fi
 PATH="${TROOT}/..:${PATH}"
 
-NOCOLOR="true"
-RC_NOCOLOR="yes" # Older baselayout/openrc versions.
+NO_COLOR="true"
 # This CHOST value doesn't matter.  It could be anything.
 # As long as all the configs we test are based on this being
 # the CHOST value.
