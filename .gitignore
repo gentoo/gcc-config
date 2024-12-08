@@ -10,3 +10,5 @@
 /.c89
 /.c99
 /.gcc-config
+
+tests/TMP-*
