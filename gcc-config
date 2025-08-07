@@ -940,7 +940,7 @@ list_profiles() {
 			source_profile "${GCC_ENV_D}/config-${target}"
 			[[ ${x} == ${CURRENT} ]] && x="${x} ${HILITE}*${NORMAL}"
 		fi
-		echo " [${i}] ${x}"
+		echo "  [${i}] ${x}"
 	done
 }
 
