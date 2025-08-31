@@ -182,7 +182,7 @@ get_chost() {
 }
 
 is_cross_compiler() {
-	[[ ${CC_COMP/${CHOST}} == ${CC_COMP} ]]
+	[[ ${CHOST} != ${CC_COMP_TARGET} ]]
 }
 
 is_same_mountpoint() {
