@@ -128,9 +128,6 @@ try_real_hard_to_find_CHOST() {
 
 	local varname=${1:-CHOST}
 	local conf=${EROOT}/etc/portage/make.conf
-	if [[ ! -e ${conf} && -e ${EROOT}/etc/make.conf ]] ; then
-		conf=${EROOT}/etc/make.conf
-	fi
 	local ret=$(source "${conf}" 2>/dev/null ; echo ${!varname})
 	if [[ -z ${ret} ]] ; then
 		# newer portage supports spaces between the var and =
